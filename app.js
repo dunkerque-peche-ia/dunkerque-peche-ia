@@ -13,6 +13,101 @@ const state = {
   isTyping: false
 };
 
+// 1b. 7-Day Forecast Database
+const FORECAST_DATABASE = [
+  {
+    date: "19/07",
+    day: "Dimanche",
+    windSpeed: 15,
+    windDir: "E",
+    pressure: 1018,
+    weatherState: "soleil",
+    tideCycle: 6.0,
+    tideCoeff: 50,
+    spotId: "jetee-malo",
+    speciesId: "maquereau",
+    weatherText: "Soleil - Vent Est 15 km/h"
+  },
+  {
+    date: "20/07",
+    day: "Lundi",
+    windSpeed: 20,
+    windDir: "SO",
+    pressure: 1015,
+    weatherState: "nuageux",
+    tideCycle: 4.5,
+    tideCoeff: 60,
+    spotId: "plage-malo",
+    speciesId: "sole",
+    weatherText: "Nuageux - Vent S-O 20 km/h"
+  },
+  {
+    date: "21/07",
+    day: "Mardi",
+    windSpeed: 25,
+    windDir: "SO",
+    pressure: 1010,
+    weatherState: "pluvieux",
+    tideCycle: 4.0,
+    tideCoeff: 75,
+    spotId: "zuydcoote",
+    speciesId: "bar",
+    weatherText: "Pluie - Vent S-O 25 km/h"
+  },
+  {
+    date: "22/07",
+    day: "Mercredi",
+    windSpeed: 35,
+    windDir: "SO",
+    pressure: 1005,
+    weatherState: "pluvieux",
+    tideCycle: 3.5,
+    tideCoeff: 88,
+    spotId: "braek",
+    speciesId: "bar",
+    weatherText: "Averses - Vent S-O 35 km/h"
+  },
+  {
+    date: "23/07",
+    day: "Jeudi",
+    windSpeed: 45,
+    windDir: "N",
+    pressure: 995,
+    weatherState: "tempete",
+    tideCycle: 6.0,
+    tideCoeff: 95,
+    spotId: "petit-fort",
+    speciesId: "flet",
+    weatherText: "Tempête - Vent Nord 45 km/h"
+  },
+  {
+    date: "24/07",
+    day: "Vendredi",
+    windSpeed: 25,
+    windDir: "SO",
+    pressure: 1012,
+    weatherState: "nuageux",
+    tideCycle: 5.0,
+    tideCoeff: 98,
+    spotId: "bray-dunes",
+    speciesId: "bar",
+    weatherText: "Éclaircies - Vent S-O 25 km/h"
+  },
+  {
+    date: "25/07",
+    day: "Samedi",
+    windSpeed: 15,
+    windDir: "N",
+    pressure: 1016,
+    weatherState: "nuageux",
+    tideCycle: 9.0,
+    tideCoeff: 92,
+    spotId: "braek",
+    speciesId: "merlan",
+    weatherText: "Nuageux - Vent Nord 15 km/h"
+  }
+];
+
 // 2. DOM Elements Cache
 const elements = {
   // Weather Controls
@@ -55,9 +150,14 @@ const elements = {
   btnSend: document.getElementById("btn-send"),
   suggestedPromptsContainer: document.getElementById("suggested-prompts-container"),
   
-  // Species Catalogue
+  // Species Catalogue & Forecast Switcher
   speciesTabsContainer: document.getElementById("species-tabs-container"),
-  speciesDetailContent: document.getElementById("species-detail-content")
+  speciesDetailContent: document.getElementById("species-detail-content"),
+  tabBtnSpecies: document.getElementById("tab-btn-species"),
+  tabBtnForecast: document.getElementById("tab-btn-forecast"),
+  speciesContentWrapper: document.getElementById("species-content-wrapper"),
+  forecastContentWrapper: document.getElementById("forecast-content-wrapper"),
+  forecastListContainer: document.getElementById("forecast-list-container")
 };
 
 // 3. Initialize Interactive Map
@@ -65,10 +165,10 @@ let map;
 let markers = {};
 
 function initMap() {
-  // Center map around Dunkirk coastal waters
+  // Center map midway between Calais and Bray-Dunes
   map = L.map('map', {
-    center: [51.048, 2.365],
-    zoom: 12,
+    center: [51.015, 2.165],
+    zoom: 10,
     zoomControl: true
   });
 
@@ -447,6 +547,199 @@ function initSpeciesTabs() {
   selectSpecies(state.activeSpeciesId);
 }
 
+// 4b. PWA Forecast Logic
+function getScoreForParams(day) {
+  // Save current state
+  const prevSpot = state.activeSpotId;
+  const prevSpecies = state.activeSpeciesId;
+  const prevWindSpeed = state.windSpeed;
+  const prevWindDir = state.windDir;
+  const prevPressure = state.pressure;
+  const prevWeather = state.weatherState;
+  const prevTideCycle = state.tideCycle;
+  const prevTideCoeff = state.tideCoeff;
+
+  // Temporarily apply day params
+  state.activeSpotId = day.spotId;
+  state.activeSpeciesId = day.speciesId;
+  state.windSpeed = day.windSpeed;
+  state.windDir = day.windDir;
+  state.pressure = day.pressure;
+  state.weatherState = day.weatherState;
+  state.tideCycle = day.tideCycle;
+  state.tideCoeff = day.tideCoeff;
+
+  let score = 50;
+  const spot = SPOTS_DATABASE.find(s => s.id === day.spotId);
+  const activeSpecies = FISH_DATABASE.find(f => f.id === day.speciesId);
+  
+  if (spot && activeSpecies) {
+    const wind = day.windSpeed;
+    if (activeSpecies.id === "bar") {
+      if (wind >= 15 && wind <= 40) score += 15;
+      else if (wind > 50) score -= 15;
+      else score -= 5;
+    } else if (activeSpecies.id === "cabillaud") {
+      if (wind >= 20 && wind <= 45) score += 15;
+      else if (wind < 15) score -= 10;
+    } else if (activeSpecies.id === "sole") {
+      if (wind < 15) score += 15;
+      else if (wind > 30) score -= 20;
+    } else if (activeSpecies.id === "maquereau") {
+      if (wind < 12) score += 25;
+      else if (wind > 20) score -= 25;
+    } else {
+      if (wind >= 10 && wind <= 25) score += 10;
+    }
+
+    const hasBestWind = spot.bestWinds.some(w => w.includes(day.windDir) || day.windDir.includes(w));
+    if (hasBestWind) score += 15;
+    else score -= 5;
+
+    if (activeSpecies.id === "cabillaud" && (day.windDir === "N" || day.windDir === "E")) score += 15;
+    if (activeSpecies.id === "bar" && day.windDir === "SO") score += 10;
+
+    const t = day.tideCycle;
+    const isMontante = t > 0 && t <= 6;
+    const isPleineMer = t > 4.5 && t <= 7.5;
+    const isDescendante = t > 6 && t < 11;
+    const isBasseMer = t <= 1 || t >= 11;
+
+    if (activeSpecies.id === "bar") {
+      if (isMontante && t >= 4) score += 15;
+      else if (isPleineMer) score += 10;
+      else if (isBasseMer) score -= 15;
+    } else if (activeSpecies.id === "sole") {
+      if (isBasseMer || (isMontante && t <= 2)) score += 20;
+      else if (isPleineMer) score -= 10;
+    } else if (activeSpecies.id === "maquereau") {
+      if (isPleineMer) score += 25;
+      else score -= 20;
+    } else if (activeSpecies.id === "cabillaud") {
+      if ((t >= 2 && t <= 4) || (t >= 8 && t <= 10)) score += 15;
+    }
+
+    const coeff = day.tideCoeff;
+    if (activeSpecies.id === "sole" || activeSpecies.id === "maquereau") {
+      if (coeff >= 45 && coeff <= 65) score += 10;
+      else if (coeff > 85) score -= 15;
+    } else if (activeSpecies.id === "bar" || activeSpecies.id === "cabillaud") {
+      if (coeff >= 70 && coeff <= 95) score += 15;
+      else if (coeff < 50) score -= 10;
+    }
+
+    if (day.pressure >= 1005 && day.pressure <= 1018) score += 5;
+    else if (day.pressure < 995) score -= 15;
+    
+    if (day.weatherState === "tempete") score = Math.min(score, 30);
+    else if (day.weatherState === "soleil" && activeSpecies.id === "maquereau") score += 15;
+    else if (day.weatherState === "nuageux" && activeSpecies.id === "bar") score += 10;
+  }
+
+  score = Math.max(15, Math.min(98, score));
+
+  // Restore state
+  state.activeSpotId = prevSpot;
+  state.activeSpeciesId = prevSpecies;
+  state.windSpeed = prevWindSpeed;
+  state.windDir = prevWindDir;
+  state.pressure = prevPressure;
+  state.weatherState = prevWeather;
+  state.tideCycle = prevTideCycle;
+  state.tideCoeff = prevTideCoeff;
+
+  return Math.round(score);
+}
+
+function renderForecastList() {
+  if (!elements.forecastListContainer) return;
+  
+  elements.forecastListContainer.innerHTML = "";
+  
+  FORECAST_DATABASE.forEach(day => {
+    const score = getScoreForParams(day);
+    const spot = SPOTS_DATABASE.find(s => s.id === day.spotId);
+    const fish = FISH_DATABASE.find(f => f.id === day.speciesId);
+    
+    let badgeClass = "badge-average";
+    if (score >= 80) badgeClass = "badge-excellent";
+    else if (score >= 65) badgeClass = "badge-good";
+    else if (score < 45) badgeClass = "badge-poor";
+    
+    const card = document.createElement("div");
+    card.className = "forecast-card";
+    card.innerHTML = `
+      <div class="forecast-date">
+        <span class="forecast-day">${day.day}</span>
+        <span class="forecast-num-date">${day.date}</span>
+      </div>
+      <div class="forecast-info">
+        <span class="forecast-spot-tag">${spot ? spot.name : day.spotId}</span>
+        <span class="forecast-weather-text">${day.weatherText} • ${fish ? fish.name.split(" ")[0] : ""}</span>
+      </div>
+      <div class="forecast-coeff">
+        <span>Coef</span>
+        <strong>${day.tideCoeff}</strong>
+      </div>
+      <div class="forecast-score-badge ${badgeClass}">${score}%</div>
+    `;
+    
+    card.addEventListener("click", () => {
+      applyForecastParams(day);
+    });
+    
+    elements.forecastListContainer.appendChild(card);
+  });
+}
+
+function applyForecastParams(day) {
+  state.windSpeed = day.windSpeed;
+  state.windDir = day.windDir;
+  state.pressure = day.pressure;
+  state.weatherState = day.weatherState;
+  state.tideCycle = day.tideCycle;
+  state.tideCoeff = day.tideCoeff;
+  state.activeSpotId = day.spotId;
+  state.activeSpeciesId = day.speciesId;
+  
+  elements.windSpeedSlider.value = day.windSpeed;
+  elements.windSpeedVal.textContent = `${day.windSpeed} km/h`;
+  
+  elements.pressureSlider.value = day.pressure;
+  elements.pressureVal.textContent = `${day.pressure} hPa`;
+  
+  elements.windDirSelector.querySelectorAll(".btn-dir").forEach(btn => {
+    if (btn.dataset.dir === day.windDir) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+  const dirLabels = { N: "Nord (N)", E: "Est (E)", S: "Sud (S)", SO: "Sud-Ouest (SO)" };
+  elements.windDirVal.textContent = dirLabels[day.windDir] || day.windDir;
+  
+  elements.weatherStateSelector.querySelectorAll(".btn-weather").forEach(btn => {
+    if (btn.dataset.weather === day.weatherState) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+  
+  elements.tideCycleSlider.value = day.tideCycle;
+  elements.tideCoeffSlider.value = day.tideCoeff;
+  elements.tideCoeffVal.textContent = day.tideCoeff;
+  
+  updateTideUI();
+  selectSpot(day.spotId);
+  selectSpecies(day.speciesId);
+  
+  const spot = SPOTS_DATABASE.find(s => s.id === day.spotId);
+  const fish = FISH_DATABASE.find(f => f.id === day.speciesId);
+  const speech = `J'ai chargé les prévisions météo et marées pour le **${day.day} ${day.date}** dans votre tableau de bord !\n\n**Créneau recommandé** :\n- Spot analysé : **${spot ? spot.name : day.spotId}**\n- Poisson ciblé : **${fish ? fish.name : day.speciesId}**\n- Conditions : ${day.weatherText} (Coef ${day.tideCoeff})\n\nLe score d'activité calculé pour ce jour est de **${getScoreForParams(day)}%**. Vous pouvez voir les conseils spécifiques dans la fiche de spot et en parler avec moi !`;
+  streamChatResponse(speech);
+}
+
 // 5. Conversational AI Coach Core Logic
 function streamChatResponse(text) {
   state.isTyping = true;
@@ -670,6 +963,24 @@ function setupListeners() {
       handleUserMessage(e.target.dataset.question);
     }
   });
+
+  // Panel tab switcher (Poissons vs Prévisions)
+  if (elements.tabBtnSpecies && elements.tabBtnForecast && elements.speciesContentWrapper && elements.forecastContentWrapper) {
+    elements.tabBtnSpecies.addEventListener("click", () => {
+      elements.tabBtnSpecies.classList.add("active");
+      elements.tabBtnForecast.classList.remove("active");
+      elements.speciesContentWrapper.style.display = "block";
+      elements.forecastContentWrapper.style.display = "none";
+    });
+
+    elements.tabBtnForecast.addEventListener("click", () => {
+      elements.tabBtnForecast.classList.add("active");
+      elements.tabBtnSpecies.classList.remove("active");
+      elements.speciesContentWrapper.style.display = "none";
+      elements.forecastContentWrapper.style.display = "block";
+      renderForecastList(); // refresh list scores
+    });
+  }
 }
 
 // 7. Mobile Navigation setup
@@ -707,6 +1018,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initSpeciesTabs();
   setupListeners();
   setupMobileNav();
+  renderForecastList(); // Initial render of weekly forecast
   
   // Set initial tides UI & scores
   updateTideUI();

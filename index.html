@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pêche IA Dunkerquois - Surfcasting & Jetées</title>
+  
+  <!-- PWA Configuration -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0a1128">
+  
+  <!-- Apple Mobile Web App Settings -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  
+  <!-- Google Fonts - Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Leaflet CSS for Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Service Worker Registration -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+          .then((reg) => console.log('Service Worker registered successfully!', reg.scope))
+          .catch((err) => console.log('Service Worker registration failed: ', err));
+      });
+    }
+  </script>
+</head>
+<body>
+
+  <!-- App Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">
+        <i data-lucide="compass" style="width: 32px; height: 32px; color: var(--accent-cyan);"></i>
+      </div>
+      <div>
+        <h1>Dunkerque Pêche IA</h1>
+        <div class="brand-subtitle">Surfcasting & Jetées du Nord</div>
+      </div>
+    </div>
+    
+    <div class="live-badge">
+      <div class="live-pulse"></div>
+      <span>SIMULATION INTELLIGENTE</span>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <main class="app-container">
+    
+    <!-- Sidebar: Simulators & Settings -->
+    <aside class="sidebar">
+      
+      <!-- Prediction Score widget (Moved to top of sidebar for immediate visibility) -->
+      <section class="glass-panel score-widget">
+        <div class="panel-title">
+          <i data-lucide="trending-up"></i>
+          <span>Activité du Poisson</span>
+        </div>
+        <div class="score-radial">
+          <svg class="score-svg">
+            <circle class="bg-circle" cx="60" cy="60" r="54"></circle>
+            <circle class="val-circle" id="score-circle" cx="60" cy="60" r="54"></circle>
+          </svg>
+          <div class="score-text">
+            <span class="score-num" id="score-value">75</span>
+            <span class="score-pct">%</span>
+          </div>
+        </div>
+        <div class="score-verdict" id="score-verdict">Excellentes Conditions</div>
+      </section>
+
+      <!-- Weather Simulator Panel -->
+      <section class="glass-panel">
+        <div class="panel-title">
+          <i data-lucide="cloud-sun"></i>
+          <span>Météo Marine</span>
+        </div>
+        
+        <!-- Wind Speed -->
+        <div class="simulator-group">
+          <div class="simulator-label">
+            <span>Force du vent</span>
+            <span class="simulator-value" id="wind-speed-val">25 km/h</span>
+          </div>
+          <input type="range" id="wind-speed-slider" min="0" max="65" value="25">
+        </div>
+        
+        <!-- Wind Direction -->
+        <div class="simulator-group">
+          <div class="simulator-label">
+            <span>Direction du vent</span>
+            <span class="simulator-value" id="wind-dir-val">Sud-Ouest (SO)</span>
+          </div>
+          <div class="wind-direction-selector" id="wind-dir-selector">
+            <button class="btn-dir" data-dir="N">Nord</button>
+            <button class="btn-dir" data-dir="E">Est</button>
+            <button class="btn-dir" data-dir="S">Sud</button>
+            <button class="btn-dir active" data-dir="SO">S-Ouest</button>
+          </div>
+        </div>
+
+        <!-- Atmospheric Pressure -->
+        <div class="simulator-group">
+          <div class="simulator-label">
+            <span>Pression barométrique</span>
+            <span class="simulator-value" id="pressure-val">1015 hPa</span>
+          </div>
+          <input type="range" id="pressure-slider" min="980" max="1040" value="1015">
+        </div>
+
+        <!-- Sky State -->
+        <div class="simulator-group">
+          <div class="simulator-label">
+            <span>État du ciel</span>
+          </div>
+          <div class="weather-selector" id="weather-state-selector">
+            <button class="btn-weather" data-weather="soleil">
+              <i data-lucide="sun" style="width: 14px; height: 14px;"></i>Soleil
+            </button>
+            <button class="btn-weather active" data-weather="nuageux">
+              <i data-lucide="cloud" style="width: 14px; height: 14px;"></i>Nuageux
+            </button>
+            <button class="btn-weather" data-weather="pluvieux">
+              <i data-lucide="cloud-rain" style="width: 14px; height: 14px;"></i>Pluie
+            </button>
+            <button class="btn-weather" data-weather="tempete">
+              <i data-lucide="zap" style="width: 14px; height: 14px;"></i>Tempête
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tide Simulator Panel -->
+      <section class="glass-panel">
+        <div class="panel-title">
+          <i data-lucide="waves"></i>
+          <span>Marée & Coefficient</span>
+        </div>
+        
+        <div class="tide-widget">
+          <div class="tide-visual">
+            <div class="tide-water" id="tide-water-element"></div>
+            <span class="tide-percent" id="tide-height-text">4.5m</span>
+            <span class="tide-state-label" id="tide-state-text">Montante</span>
+          </div>
+        </div>
+
+        <!-- Tide Position Slider -->
+        <div class="simulator-group" style="margin-top: 1rem;">
+          <div class="simulator-label">
+            <span>Cycle de marée (12h)</span>
+            <span class="simulator-value" id="tide-cycle-val">Montante (3h après BM)</span>
+          </div>
+          <input type="range" id="tide-cycle-slider" min="0" max="12" value="3" step="0.5">
+        </div>
+
+        <!-- Coefficient -->
+        <div class="simulator-group">
+          <div class="simulator-label">
+            <span>Coefficient de marée</span>
+            <span class="simulator-value" id="tide-coeff-val">75</span>
+          </div>
+          <input type="range" id="tide-coeff-slider" min="35" max="115" value="75">
+        </div>
+      </section>
+    </aside>
+
+    <!-- Main Section: Map, Info, AI Coach, Species -->
+    <div class="main-content">
+      
+      <!-- Top Row: Map and Active Spot details -->
+      <div class="top-row">
+        <!-- Interactive Leaflet Map -->
+        <section class="glass-panel map-panel">
+          <div class="panel-title" style="margin-bottom: 0.5rem;">
+            <i data-lucide="map-pin"></i>
+            <span>Spots de Pêche du Dunkerquois</span>
+          </div>
+          <div id="map"></div>
+        </section>
+        
+        <!-- Active Spot Details -->
+        <section class="glass-panel details-panel" id="spot-details-panel">
+          <div>
+            <div class="panel-title" style="margin-bottom: 0.75rem;">
+              <i data-lucide="info"></i>
+              <span>Fiche du Spot</span>
+            </div>
+            
+            <div id="spot-active-content" class="spot-details-content">
+              <!-- Dynamically populated -->
+              <div>
+                <h2 class="spot-name-heading" id="spot-name">Sélectionnez un spot</h2>
+                <div class="spot-tag-row" id="spot-tags">
+                  <span class="tag tag-type">Plage / Digue</span>
+                  <span class="tag tag-difficulty">Difficulté</span>
+                </div>
+                <p class="spot-intro" id="spot-description">Cliquez sur un marqueur de la carte ou sur les boutons ci-dessous pour analyser un coin de pêche précis.</p>
+              </div>
+
+              <div class="details-row">
+                <div class="details-label">Marée idéale :</div>
+                <div class="details-val" id="spot-tide-ideal">-</div>
+              </div>
+              <div class="details-row">
+                <div class="details-label">Vents idéaux :</div>
+                <div class="details-val" id="spot-winds-ideal">-</div>
+              </div>
+              <div class="details-row">
+                <div class="details-label">Espèces clés :</div>
+                <div class="details-val" id="spot-species">-</div>
+              </div>
+              <div class="details-row">
+                <div class="details-label">Conseil Pro :</div>
+                <div class="details-val" style="font-style: italic;" id="spot-advice">-</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="details-warning-box" id="spot-safety-box" style="margin-top: 1rem;">
+            <i data-lucide="alert-triangle"></i>
+            <div>
+              <strong>Consignes de Sécurité :</strong>
+              <span id="spot-safety">Veuillez d'abord sélectionner un spot pour afficher les règles de sécurité spécifiques.</span>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Bottom Row: AI Coach Chat & Fish Species -->
+      <div class="bottom-row">
+        <!-- AI Fishing Coach Chat -->
+        <section class="glass-panel ai-coach-panel">
+          <div class="panel-title" style="margin-bottom: 0.75rem;">
+            <i data-lucide="message-square-code"></i>
+            <span>Coach Pêche IA Dunkerquoise</span>
+          </div>
+          
+          <div class="chat-history" id="chat-history">
+            <!-- Simulated streaming responses from assistant -->
+            <div class="chat-bubble assistant">
+              <p>Salut l'ami pêcheur ! 🎣 Je suis ton coach spécialisé sur la Côte d'Opale et le Dunkerquois.</p>
+              <p>Sélectionne un <strong>spot sur la carte</strong> ou ajuste les <strong>conditions météo et marées</strong> à gauche, puis pose-moi une question. Je te donnerai les meilleurs montages, appâts et tactiques adaptés en temps réel !</p>
+            </div>
+          </div>
+          
+          <!-- Suggested Prompts -->
+          <div class="suggested-prompts" id="suggested-prompts-container">
+            <button class="btn-prompt" data-question="Où pêcher en ce moment avec ces conditions ?">Où pêcher maintenant ?</button>
+            <button class="btn-prompt" data-question="Quel montage utiliser sur le spot sélectionné ?">Quel montage conseiller ?</button>
+            <button class="btn-prompt" data-question="Quels appâts marchent le mieux aujourd'hui ?">Quels appâts privilégier ?</button>
+            <button class="btn-prompt" data-question="Quels poissons sont actifs sous ce vent ?">Activité par ce vent ?</button>
+          </div>
+          
+          <!-- Input Form -->
+          <div class="chat-input-wrapper">
+            <input type="text" class="chat-input" id="chat-input" placeholder="Posez une question sur un montage, un spot, une technique..." />
+            <button class="btn-send" id="btn-send">
+              <i data-lucide="send" style="width: 16px; height: 16px; margin-right: 4px;"></i> Poser
+            </button>
+          </div>
+        </section>
+
+        <!-- Fish Catalogue & Forecast Panel -->
+        <section class="glass-panel species-panel">
+          <!-- Panel Tab Switcher -->
+          <div class="panel-title-switcher" style="margin-bottom: 0.75rem;">
+            <button class="btn-panel-tab active" id="tab-btn-species">
+              <i data-lucide="book-open" style="width: 16px; height: 16px; margin-right: 4px;"></i>
+              <span>Poissons</span>
+            </button>
+            <button class="btn-panel-tab" id="tab-btn-forecast">
+              <i data-lucide="calendar" style="width: 16px; height: 16px; margin-right: 4px;"></i>
+              <span>Prévisions 7J</span>
+            </button>
+          </div>
+          
+          <!-- Species Section Wrapper -->
+          <div id="species-content-wrapper">
+            <!-- Species Navigation Tabs -->
+            <div class="species-grid" id="species-tabs-container">
+              <!-- Populated via JS -->
+            </div>
+            
+            <!-- Selected Species Detail Box -->
+            <div class="species-detail-box" id="species-detail-content">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+
+          <!-- Forecast Section Wrapper -->
+          <div id="forecast-content-wrapper" style="display: none; height: calc(100% - 40px); overflow: hidden;">
+            <div class="forecast-list" id="forecast-list-container" style="overflow-y: auto; height: 100%; display: flex; flex-direction: column; gap: 0.5rem; padding-right: 2px;">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Mobile Bottom Navigation (Visible only on mobile/tablet) -->
+  <nav class="mobile-nav" id="mobile-nav" style="display: none;">
+    <button class="mobile-nav-btn active" data-tab="map">
+      <i data-lucide="map" style="width: 20px; height: 20px;"></i>
+      <span>Carte</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="sim">
+      <i data-lucide="sliders" style="width: 20px; height: 20px;"></i>
+      <span>Météo/Marée</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="coach">
+      <i data-lucide="message-square" style="width: 20px; height: 20px;"></i>
+      <span>Coach IA</span>
+    </button>
+    <button class="mobile-nav-btn" data-tab="fish">
+      <i data-lucide="fish" style="width: 20px; height: 20px;"></i>
+      <span>Poissons</span>
+    </button>
+  </nav>
+
+  <!-- Leaflet JS Library -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+          
+  <!-- Database JS Files -->
+  <script src="fish_database.js"></script>
+  <script src="spots_database.js"></script>
+  
+  <!-- Main Application Logic JS -->
+  <script src="app.js"></script>
+  
+  <!-- Initialize Lucide Icons -->
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>
