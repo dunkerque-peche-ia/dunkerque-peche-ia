@@ -166,7 +166,9 @@ const elements = {
   tabBtnTidePrev: document.getElementById("tab-btn-tide-prev"),
   tideSimWrapper: document.getElementById("tide-sim-wrapper"),
   tidePrevWrapper: document.getElementById("tide-prev-wrapper"),
-  tideForecastList: document.getElementById("tide-forecast-list")
+  tideForecastList: document.getElementById("tide-forecast-list"),
+  tideSearchDate: document.getElementById("tide-search-date"),
+  tideSearchResult: document.getElementById("tide-search-result")
 };
 
 // 3. Initialize Interactive Map
@@ -469,6 +471,7 @@ function selectSpot(spotId) {
 
   // Recalculate score and refresh UI
   updateScore();
+  updateTideSearch();
 }
 
 function selectSpecies(speciesId) {
@@ -792,6 +795,178 @@ function applyTideForecastParams(day) {
   streamChatResponse(speech);
 }
 
+// 4c. Annual Tide Directory Calculations (Astro Model 2026)
+function getDayOfYear(date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  const diff = date - start;
+  const oneDay = 1000 * 60 * 60 * 24;
+  return Math.floor(diff / oneDay) - 1; // 0-indexed
+}
+
+const SPOT_TIDE_OFFSETS = {
+  "braek": 0,
+  "jetee-malo": 2,
+  "plage-malo": 2,
+  "zuydcoote": 5,
+  "bray-dunes": 8,
+  "petit-fort": -15,
+  "oye-plage": -20,
+  "jetee-calais": -30,
+  "plage-calais": -35
+};
+
+function calculateTidesForDate(dateStr, spotId) {
+  const dateObj = new Date(dateStr);
+  const D = getDayOfYear(dateObj);
+  
+  // 1. Calculate Tide Coefficient using calibrated cosine wave
+  // Peak spring tides 4.5 days after start of year (matches Jan 3-5 moon cycles)
+  // Half synodic month is 14.765 days
+  const coeff = Math.round(68.5 + 28.5 * Math.cos(2 * Math.PI * (D - 4.5) / 14.765));
+  const finalCoeff = Math.max(35, Math.min(115, coeff));
+  
+  // 2. High and Low Tide astronomical times propagation
+  // Dunkirk reference High Tide: Jan 1, 2026 at 03:50 UTC (3.833 hours)
+  // Average cycle duration: 12.4206 hours
+  // Low Tide offset: 6.21 hours after High Tide
+  const cycle = 12.4206;
+  const startOfDayHours = 24 * D;
+  const endOfDayHours = 24 * (D + 1);
+  
+  // Spot offset in hours
+  const offsetMins = SPOT_TIDE_OFFSETS[spotId] || 0;
+  const offsetHours = offsetMins / 60;
+  
+  const highTides = [];
+  const lowTides = [];
+  
+  // Find all High Tides falling within the 24-hour window of day D
+  const N_high_min = Math.ceil((startOfDayHours - 3.833 - offsetHours) / cycle);
+  const N_high_max = Math.floor((endOfDayHours - 3.833 - offsetHours) / cycle);
+  
+  for (let n = N_high_min; n <= N_high_max; n++) {
+    const t = 3.833 + offsetHours + n * cycle;
+    const timeInDay = t - startOfDayHours;
+    if (timeInDay >= 0 && timeInDay < 24) {
+      highTides.push(timeInDay);
+    }
+  }
+  
+  // Find all Low Tides falling within the 24-hour window of day D
+  const N_low_min = Math.ceil((startOfDayHours - 3.833 - 6.21 - offsetHours) / cycle);
+  const N_low_max = Math.floor((endOfDayHours - 3.833 - 6.21 - offsetHours) / cycle);
+  
+  for (let n = N_low_min; n <= N_low_max; n++) {
+    const t = 3.833 + 6.21 + offsetHours + n * cycle;
+    const timeInDay = t - startOfDayHours;
+    if (timeInDay >= 0 && timeInDay < 24) {
+      lowTides.push(timeInDay);
+    }
+  }
+  
+  // Sort tide times ascending
+  highTides.sort((a, b) => a - b);
+  lowTides.sort((a, b) => a - b);
+  
+  // Water levels calculations consistent with updateTideUI()
+  // High level
+  const heightMax = (5.2 + (finalCoeff - 35) * 0.025).toFixed(2);
+  // Low level
+  const heightMin = (0.8 + (115 - finalCoeff) * 0.008).toFixed(2);
+  
+  return {
+    coeff: finalCoeff,
+    highTides: highTides.map(t => ({ time: formatHoursToTimeString(t), height: heightMax })),
+    lowTides: lowTides.map(t => ({ time: formatHoursToTimeString(t), height: heightMin }))
+  };
+}
+
+function formatHoursToTimeString(hoursFloat) {
+  const h = Math.floor(hoursFloat);
+  const m = Math.floor((hoursFloat - h) * 60);
+  return `${h.toString().padStart(2, '0')}h${m.toString().padStart(2, '0')}`;
+}
+
+function updateTideSearch() {
+  if (!elements.tideSearchDate || !elements.tideSearchResult) return;
+  
+  const dateVal = elements.tideSearchDate.value;
+  const spotId = state.activeSpotId;
+  const spot = SPOTS_DATABASE.find(s => s.id === spotId);
+  
+  if (!dateVal) return;
+  
+  const results = calculateTidesForDate(dateVal, spotId);
+  
+  // Coefficient coloring class
+  let coeffClass = "badge-good";
+  if (results.coeff >= 85) coeffClass = "badge-excellent";
+  else if (results.coeff <= 55) coeffClass = "badge-poor";
+  
+  let html = `
+    <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; padding: 0.5rem; font-size: 0.75rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.25rem;">
+        <span style="font-weight: 700; color: var(--text-primary);">${spot ? spot.name.split(" ")[0] : "Spot"}</span>
+        <span class="forecast-score-badge ${coeffClass}" style="font-size: 0.65rem; padding: 0.1rem 0.3rem;">Coef ${results.coeff}</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+  `;
+  
+  // Merge high and low tides chronologically for display
+  const allTides = [];
+  results.highTides.forEach(t => allTides.push({ type: "PM", time: t.time, height: t.height }));
+  results.lowTides.forEach(t => allTides.push({ type: "BM", time: t.time, height: t.height }));
+  
+  allTides.sort((a, b) => {
+    const tA = parseInt(a.time.replace("h", ""));
+    const tB = parseInt(b.time.replace("h", ""));
+    return tA - tB;
+  });
+  
+  allTides.forEach(t => {
+    const isHigh = t.type === "PM";
+    const label = isHigh ? "Pleine Mer" : "Basse Mer";
+    const color = isHigh ? "var(--accent-cyan)" : "var(--text-secondary)";
+    html += `
+      <div style="display: flex; justify-content: space-between;">
+        <span style="color: ${color}; font-weight: 500;">${label} (${t.type})</span>
+        <span style="color: var(--text-primary); font-weight: 600;">${t.time} • <span style="font-size: 10px; color: var(--text-muted);">${t.height}m</span></span>
+      </div>
+    `;
+  });
+  
+  html += `
+      </div>
+      <button id="btn-apply-searched-tide" style="margin-top: 0.5rem; width: 100%; background: rgba(0, 242, 254, 0.1); border: 1px solid rgba(0, 242, 254, 0.3); border-radius: 4px; color: var(--accent-cyan); font-family: var(--font-family); font-size: 0.7rem; font-weight: 600; padding: 0.25rem; cursor: pointer; transition: 0.2s; outline: none;">
+        Simuler cette marée
+      </button>
+    </div>
+  `;
+  
+  elements.tideSearchResult.innerHTML = html;
+  
+  // Bind Apply Button click
+  const btnApply = document.getElementById("btn-apply-searched-tide");
+  if (btnApply) {
+    btnApply.addEventListener("click", () => {
+      // Apply coefficient
+      state.tideCoeff = results.coeff;
+      state.tideCycle = 6.0; // default to High Tide PM peak
+      
+      elements.tideCoeffSlider.value = results.coeff;
+      elements.tideCoeffVal.textContent = results.coeff;
+      elements.tideCycleSlider.value = 6.0;
+      
+      updateTideUI();
+      updateScore();
+      
+      const formattedDate = new Date(dateVal).toLocaleDateString("fr-FR", { day: 'numeric', month: 'long', year: 'numeric' });
+      const speech = `J'ai réglé le coefficient de **${results.coeff}** de l'annuaire du **${formattedDate}** dans votre simulateur de niveau d'eau pour **${spot ? spot.name : "ce spot"}** !`;
+      streamChatResponse(speech);
+    });
+  }
+}
+
 // 5. Conversational AI Coach Core Logic
 function streamChatResponse(text) {
   state.isTyping = true;
@@ -1049,6 +1224,14 @@ function setupListeners() {
       elements.tideSimWrapper.style.display = "none";
       elements.tidePrevWrapper.style.display = "block";
       renderTideForecastList();
+      updateTideSearch(); // Render search block contents
+    });
+  }
+
+  // Tide Calendar search listener
+  if (elements.tideSearchDate) {
+    elements.tideSearchDate.addEventListener("change", () => {
+      updateTideSearch();
     });
   }
 }
@@ -1091,9 +1274,18 @@ document.addEventListener("DOMContentLoaded", () => {
   renderMeteoForecastList(); // Initial render of weekly weather forecast
   renderTideForecastList(); // Initial render of weekly tide forecast
   
+  // Set default lookup date to current local date
+  if (elements.tideSearchDate) {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    elements.tideSearchDate.value = `${yyyy}-${mm}-${dd}`;
+  }
+  
   // Set initial tides UI & scores
   updateTideUI();
-  selectSpot(state.activeSpotId);
+  selectSpot(state.activeSpotId); // This automatically triggers updateTideSearch()
 
   // Force Leaflet to recalculate size after browser DOM rendering completes
   setTimeout(() => {
