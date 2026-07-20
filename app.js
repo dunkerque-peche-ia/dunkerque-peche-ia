@@ -150,14 +150,23 @@ const elements = {
   btnSend: document.getElementById("btn-send"),
   suggestedPromptsContainer: document.getElementById("suggested-prompts-container"),
   
-  // Species Catalogue & Forecast Switcher
+  // Species Catalogue
   speciesTabsContainer: document.getElementById("species-tabs-container"),
   speciesDetailContent: document.getElementById("species-detail-content"),
-  tabBtnSpecies: document.getElementById("tab-btn-species"),
-  tabBtnForecast: document.getElementById("tab-btn-forecast"),
-  speciesContentWrapper: document.getElementById("species-content-wrapper"),
-  forecastContentWrapper: document.getElementById("forecast-content-wrapper"),
-  forecastListContainer: document.getElementById("forecast-list-container")
+
+  // Weather Forecast Switcher
+  tabBtnMeteoSim: document.getElementById("tab-btn-meteo-sim"),
+  tabBtnMeteoPrev: document.getElementById("tab-btn-meteo-prev"),
+  meteoSimWrapper: document.getElementById("meteo-sim-wrapper"),
+  meteoPrevWrapper: document.getElementById("meteo-prev-wrapper"),
+  meteoForecastList: document.getElementById("meteo-forecast-list"),
+
+  // Tide Forecast Switcher
+  tabBtnTideSim: document.getElementById("tab-btn-tide-sim"),
+  tabBtnTidePrev: document.getElementById("tab-btn-tide-prev"),
+  tideSimWrapper: document.getElementById("tide-sim-wrapper"),
+  tidePrevWrapper: document.getElementById("tide-prev-wrapper"),
+  tideForecastList: document.getElementById("tide-forecast-list")
 };
 
 // 3. Initialize Interactive Map
@@ -651,56 +660,91 @@ function getScoreForParams(day) {
   return Math.round(score);
 }
 
-function renderForecastList() {
-  if (!elements.forecastListContainer) return;
+function renderMeteoForecastList() {
+  if (!elements.meteoForecastList) return;
   
-  elements.forecastListContainer.innerHTML = "";
+  elements.meteoForecastList.innerHTML = "";
   
   FORECAST_DATABASE.forEach(day => {
-    const score = getScoreForParams(day);
-    const spot = SPOTS_DATABASE.find(s => s.id === day.spotId);
-    const fish = FISH_DATABASE.find(f => f.id === day.speciesId);
-    
-    let badgeClass = "badge-average";
-    if (score >= 80) badgeClass = "badge-excellent";
-    else if (score >= 65) badgeClass = "badge-good";
-    else if (score < 45) badgeClass = "badge-poor";
+    let weatherIcon = "sun";
+    if (day.weatherState === "nuageux") weatherIcon = "cloud";
+    else if (day.weatherState === "pluvieux") weatherIcon = "cloud-rain";
+    else if (day.weatherState === "tempete") weatherIcon = "zap";
     
     const card = document.createElement("div");
     card.className = "forecast-card";
+    card.style.gridTemplateColumns = "70px 1fr 40px";
     card.innerHTML = `
       <div class="forecast-date">
         <span class="forecast-day">${day.day}</span>
         <span class="forecast-num-date">${day.date}</span>
       </div>
-      <div class="forecast-info">
-        <span class="forecast-spot-tag">${spot ? spot.name : day.spotId}</span>
-        <span class="forecast-weather-text">${day.weatherText} • ${fish ? fish.name.split(" ")[0] : ""}</span>
+      <div class="forecast-info" style="gap: 0.05rem;">
+        <span class="forecast-spot-tag" style="color: var(--accent-cyan); font-size: 0.7rem;">${day.windDir} • ${day.windSpeed} km/h</span>
+        <span class="forecast-weather-text" style="font-size: 0.65rem; color: var(--text-muted);">${day.pressure} hPa • ${day.weatherState}</span>
       </div>
-      <div class="forecast-coeff">
-        <span>Coef</span>
-        <strong>${day.tideCoeff}</strong>
+      <div style="display: flex; justify-content: center; align-items: center; color: var(--text-secondary);">
+        <i data-lucide="${weatherIcon}" style="width: 18px; height: 18px;"></i>
       </div>
-      <div class="forecast-score-badge ${badgeClass}">${score}%</div>
     `;
     
     card.addEventListener("click", () => {
-      applyForecastParams(day);
+      applyMeteoForecastParams(day);
     });
     
-    elements.forecastListContainer.appendChild(card);
+    elements.meteoForecastList.appendChild(card);
+  });
+  
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
+
+function renderTideForecastList() {
+  if (!elements.tideForecastList) return;
+  
+  elements.tideForecastList.innerHTML = "";
+  
+  FORECAST_DATABASE.forEach(day => {
+    const spot = SPOTS_DATABASE.find(s => s.id === day.spotId);
+    
+    let badgeClass = "badge-good";
+    if (day.tideCoeff >= 85) badgeClass = "badge-excellent";
+    else if (day.tideCoeff <= 55) badgeClass = "badge-poor";
+    
+    let tideStateLabel = "Pleine Mer";
+    if (day.tideCycle === 0 || day.tideCycle === 12) tideStateLabel = "Basse Mer";
+    else if (day.tideCycle > 0 && day.tideCycle < 6) tideStateLabel = "Montante";
+    else if (day.tideCycle > 6 && day.tideCycle < 12) tideStateLabel = "Descendante";
+
+    const card = document.createElement("div");
+    card.className = "forecast-card";
+    card.style.gridTemplateColumns = "70px 1fr 45px";
+    card.innerHTML = `
+      <div class="forecast-date">
+        <span class="forecast-day">${day.day}</span>
+        <span class="forecast-num-date">${day.date}</span>
+      </div>
+      <div class="forecast-info" style="gap: 0.05rem;">
+        <span class="forecast-spot-tag" style="color: var(--accent-blue); font-size: 0.7rem;">${spot ? spot.name.split(" ")[0] : "Mer"}</span>
+        <span class="forecast-weather-text" style="font-size: 0.65rem; color: var(--text-secondary);">${tideStateLabel}</span>
+      </div>
+      <div class="forecast-score-badge ${badgeClass}">${day.tideCoeff}</div>
+    `;
+    
+    card.addEventListener("click", () => {
+      applyTideForecastParams(day);
+    });
+    
+    elements.tideForecastList.appendChild(card);
   });
 }
 
-function applyForecastParams(day) {
+function applyMeteoForecastParams(day) {
   state.windSpeed = day.windSpeed;
   state.windDir = day.windDir;
   state.pressure = day.pressure;
   state.weatherState = day.weatherState;
-  state.tideCycle = day.tideCycle;
-  state.tideCoeff = day.tideCoeff;
-  state.activeSpotId = day.spotId;
-  state.activeSpeciesId = day.speciesId;
   
   elements.windSpeedSlider.value = day.windSpeed;
   elements.windSpeedVal.textContent = `${day.windSpeed} km/h`;
@@ -726,17 +770,25 @@ function applyForecastParams(day) {
     }
   });
   
+  updateScore();
+  
+  const spot = SPOTS_DATABASE.find(s => s.id === state.activeSpotId);
+  const speech = `J'ai réglé la simulation météo sur les prévisions du **${day.day} ${day.date}** !\n\n**Paramètres appliqués** :\n- Vent : **${day.windDir} à ${day.windSpeed} km/h**\n- Couverture : **${day.weatherState}**\n- Pression : **${day.pressure} hPa**\n\nLe score d'activité global pour le spot **${spot.name}** passe à **${state.isTyping ? "" : getScoreForParams(day)}%** avec ces conditions !`;
+  streamChatResponse(speech);
+}
+
+function applyTideForecastParams(day) {
+  state.tideCycle = day.tideCycle;
+  state.tideCoeff = day.tideCoeff;
+  
   elements.tideCycleSlider.value = day.tideCycle;
   elements.tideCoeffSlider.value = day.tideCoeff;
   elements.tideCoeffVal.textContent = day.tideCoeff;
   
   updateTideUI();
-  selectSpot(day.spotId);
-  selectSpecies(day.speciesId);
+  updateScore();
   
-  const spot = SPOTS_DATABASE.find(s => s.id === day.spotId);
-  const fish = FISH_DATABASE.find(f => f.id === day.speciesId);
-  const speech = `J'ai chargé les prévisions météo et marées pour le **${day.day} ${day.date}** dans votre tableau de bord !\n\n**Créneau recommandé** :\n- Spot analysé : **${spot ? spot.name : day.spotId}**\n- Poisson ciblé : **${fish ? fish.name : day.speciesId}**\n- Conditions : ${day.weatherText} (Coef ${day.tideCoeff})\n\nLe score d'activité calculé pour ce jour est de **${getScoreForParams(day)}%**. Vous pouvez voir les conseils spécifiques dans la fiche de spot et en parler avec moi !`;
+  const speech = `J'ai réglé la simulation de marée sur les prévisions du **${day.day} ${day.date}** !\n\n**Paramètres appliqués** :\n- Coefficient de marée : **${day.tideCoeff}**\n- Étape du cycle : **${day.tideCycle}h** (niveau d'eau calculé à la hausse ou à la baisse).\n\nLe graphique interactif montre maintenant le niveau d'eau correspondant !`;
   streamChatResponse(speech);
 }
 
@@ -964,21 +1016,39 @@ function setupListeners() {
     }
   });
 
-  // Panel tab switcher (Poissons vs Prévisions)
-  if (elements.tabBtnSpecies && elements.tabBtnForecast && elements.speciesContentWrapper && elements.forecastContentWrapper) {
-    elements.tabBtnSpecies.addEventListener("click", () => {
-      elements.tabBtnSpecies.classList.add("active");
-      elements.tabBtnForecast.classList.remove("active");
-      elements.speciesContentWrapper.style.display = "block";
-      elements.forecastContentWrapper.style.display = "none";
+  // Weather Forecast Tab Switcher
+  if (elements.tabBtnMeteoSim && elements.tabBtnMeteoPrev && elements.meteoSimWrapper && elements.meteoPrevWrapper) {
+    elements.tabBtnMeteoSim.addEventListener("click", () => {
+      elements.tabBtnMeteoSim.classList.add("active");
+      elements.tabBtnMeteoPrev.classList.remove("active");
+      elements.meteoSimWrapper.style.display = "block";
+      elements.meteoPrevWrapper.style.display = "none";
     });
 
-    elements.tabBtnForecast.addEventListener("click", () => {
-      elements.tabBtnForecast.classList.add("active");
-      elements.tabBtnSpecies.classList.remove("active");
-      elements.speciesContentWrapper.style.display = "none";
-      elements.forecastContentWrapper.style.display = "block";
-      renderForecastList(); // refresh list scores
+    elements.tabBtnMeteoPrev.addEventListener("click", () => {
+      elements.tabBtnMeteoPrev.classList.add("active");
+      elements.tabBtnMeteoSim.classList.remove("active");
+      elements.meteoSimWrapper.style.display = "none";
+      elements.meteoPrevWrapper.style.display = "block";
+      renderMeteoForecastList();
+    });
+  }
+
+  // Tide Forecast Tab Switcher
+  if (elements.tabBtnTideSim && elements.tabBtnTidePrev && elements.tideSimWrapper && elements.tidePrevWrapper) {
+    elements.tabBtnTideSim.addEventListener("click", () => {
+      elements.tabBtnTideSim.classList.add("active");
+      elements.tabBtnTidePrev.classList.remove("active");
+      elements.tideSimWrapper.style.display = "block";
+      elements.tidePrevWrapper.style.display = "none";
+    });
+
+    elements.tabBtnTidePrev.addEventListener("click", () => {
+      elements.tabBtnTidePrev.classList.add("active");
+      elements.tabBtnTideSim.classList.remove("active");
+      elements.tideSimWrapper.style.display = "none";
+      elements.tidePrevWrapper.style.display = "block";
+      renderTideForecastList();
     });
   }
 }
@@ -1018,7 +1088,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initSpeciesTabs();
   setupListeners();
   setupMobileNav();
-  renderForecastList(); // Initial render of weekly forecast
+  renderMeteoForecastList(); // Initial render of weekly weather forecast
+  renderTideForecastList(); // Initial render of weekly tide forecast
   
   // Set initial tides UI & scores
   updateTideUI();

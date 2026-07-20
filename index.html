@@ -87,96 +87,128 @@
 
       <!-- Weather Simulator Panel -->
       <section class="glass-panel">
-        <div class="panel-title">
-          <i data-lucide="cloud-sun"></i>
-          <span>Météo Marine</span>
+        <div class="panel-title-switcher" style="margin-bottom: 0.75rem;">
+          <button class="btn-panel-tab active" id="tab-btn-meteo-sim">
+            <i data-lucide="sliders" style="width: 15px; height: 15px; margin-right: 4px;"></i>
+            <span>Simuler</span>
+          </button>
+          <button class="btn-panel-tab" id="tab-btn-meteo-prev">
+            <i data-lucide="calendar" style="width: 15px; height: 15px; margin-right: 4px;"></i>
+            <span>Météo 7J</span>
+          </button>
         </div>
         
-        <!-- Wind Speed -->
-        <div class="simulator-group">
-          <div class="simulator-label">
-            <span>Force du vent</span>
-            <span class="simulator-value" id="wind-speed-val">25 km/h</span>
+        <!-- Weather Simulator Sliders -->
+        <div id="meteo-sim-wrapper">
+          <!-- Wind Speed -->
+          <div class="simulator-group">
+            <div class="simulator-label">
+              <span>Force du vent</span>
+              <span class="simulator-value" id="wind-speed-val">25 km/h</span>
+            </div>
+            <input type="range" id="wind-speed-slider" min="0" max="65" value="25">
           </div>
-          <input type="range" id="wind-speed-slider" min="0" max="65" value="25">
-        </div>
-        
-        <!-- Wind Direction -->
-        <div class="simulator-group">
-          <div class="simulator-label">
-            <span>Direction du vent</span>
-            <span class="simulator-value" id="wind-dir-val">Sud-Ouest (SO)</span>
+          
+          <!-- Wind Direction -->
+          <div class="simulator-group">
+            <div class="simulator-label">
+              <span>Direction du vent</span>
+              <span class="simulator-value" id="wind-dir-val">Sud-Ouest (SO)</span>
+            </div>
+            <div class="wind-direction-selector" id="wind-dir-selector">
+              <button class="btn-dir" data-dir="N">Nord</button>
+              <button class="btn-dir" data-dir="E">Est</button>
+              <button class="btn-dir" data-dir="S">Sud</button>
+              <button class="btn-dir active" data-dir="SO">S-Ouest</button>
+            </div>
           </div>
-          <div class="wind-direction-selector" id="wind-dir-selector">
-            <button class="btn-dir" data-dir="N">Nord</button>
-            <button class="btn-dir" data-dir="E">Est</button>
-            <button class="btn-dir" data-dir="S">Sud</button>
-            <button class="btn-dir active" data-dir="SO">S-Ouest</button>
+
+          <!-- Atmospheric Pressure -->
+          <div class="simulator-group">
+            <div class="simulator-label">
+              <span>Pression barométrique</span>
+              <span class="simulator-value" id="pressure-val">1015 hPa</span>
+            </div>
+            <input type="range" id="pressure-slider" min="980" max="1040" value="1015">
+          </div>
+
+          <!-- Sky State -->
+          <div class="simulator-group">
+            <div class="simulator-label">
+              <span>État du ciel</span>
+            </div>
+            <div class="weather-selector" id="weather-state-selector">
+              <button class="btn-weather" data-weather="soleil">
+                <i data-lucide="sun" style="width: 14px; height: 14px;"></i>Soleil
+              </button>
+              <button class="btn-weather active" data-weather="nuageux">
+                <i data-lucide="cloud" style="width: 14px; height: 14px;"></i>Nuageux
+              </button>
+              <button class="btn-weather" data-weather="pluvieux">
+                <i data-lucide="cloud-rain" style="width: 14px; height: 14px;"></i>Pluie
+              </button>
+              <button class="btn-weather" data-weather="tempete">
+                <i data-lucide="zap" style="width: 14px; height: 14px;"></i>Tempête
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- Atmospheric Pressure -->
-        <div class="simulator-group">
-          <div class="simulator-label">
-            <span>Pression barométrique</span>
-            <span class="simulator-value" id="pressure-val">1015 hPa</span>
-          </div>
-          <input type="range" id="pressure-slider" min="980" max="1040" value="1015">
-        </div>
-
-        <!-- Sky State -->
-        <div class="simulator-group">
-          <div class="simulator-label">
-            <span>État du ciel</span>
-          </div>
-          <div class="weather-selector" id="weather-state-selector">
-            <button class="btn-weather" data-weather="soleil">
-              <i data-lucide="sun" style="width: 14px; height: 14px;"></i>Soleil
-            </button>
-            <button class="btn-weather active" data-weather="nuageux">
-              <i data-lucide="cloud" style="width: 14px; height: 14px;"></i>Nuageux
-            </button>
-            <button class="btn-weather" data-weather="pluvieux">
-              <i data-lucide="cloud-rain" style="width: 14px; height: 14px;"></i>Pluie
-            </button>
-            <button class="btn-weather" data-weather="tempete">
-              <i data-lucide="zap" style="width: 14px; height: 14px;"></i>Tempête
-            </button>
+        <!-- Weather 7-Day Forecast Wrapper -->
+        <div id="meteo-prev-wrapper" style="display: none; max-height: 280px; overflow-y: auto;">
+          <div class="sidebar-forecast-list" id="meteo-forecast-list" style="display: flex; flex-direction: column; gap: 0.5rem; padding-right: 2px;">
+            <!-- Populated via JS -->
           </div>
         </div>
       </section>
 
       <!-- Tide Simulator Panel -->
       <section class="glass-panel">
-        <div class="panel-title">
-          <i data-lucide="waves"></i>
-          <span>Marée & Coefficient</span>
+        <div class="panel-title-switcher" style="margin-bottom: 0.75rem;">
+          <button class="btn-panel-tab active" id="tab-btn-tide-sim">
+            <i data-lucide="sliders" style="width: 15px; height: 15px; margin-right: 4px;"></i>
+            <span>Simuler</span>
+          </button>
+          <button class="btn-panel-tab" id="tab-btn-tide-prev">
+            <i data-lucide="calendar" style="width: 15px; height: 15px; margin-right: 4px;"></i>
+            <span>Marées 7J</span>
+          </button>
         </div>
         
-        <div class="tide-widget">
-          <div class="tide-visual">
-            <div class="tide-water" id="tide-water-element"></div>
-            <span class="tide-percent" id="tide-height-text">4.5m</span>
-            <span class="tide-state-label" id="tide-state-text">Montante</span>
+        <!-- Tide Simulator Content -->
+        <div id="tide-sim-wrapper">
+          <div class="tide-widget">
+            <div class="tide-visual">
+              <div class="tide-water" id="tide-water-element"></div>
+              <span class="tide-percent" id="tide-height-text">4.5m</span>
+              <span class="tide-state-label" id="tide-state-text">Montante</span>
+            </div>
+          </div>
+
+          <!-- Tide Position Slider -->
+          <div class="simulator-group" style="margin-top: 1rem;">
+            <div class="simulator-label">
+              <span>Cycle de marée (12h)</span>
+              <span class="simulator-value" id="tide-cycle-val">Montante (3h après BM)</span>
+            </div>
+            <input type="range" id="tide-cycle-slider" min="0" max="12" value="3" step="0.5">
+          </div>
+
+          <!-- Coefficient -->
+          <div class="simulator-group">
+            <div class="simulator-label">
+              <span>Coefficient de marée</span>
+              <span class="simulator-value" id="tide-coeff-val">75</span>
+            </div>
+            <input type="range" id="tide-coeff-slider" min="35" max="115" value="75">
           </div>
         </div>
 
-        <!-- Tide Position Slider -->
-        <div class="simulator-group" style="margin-top: 1rem;">
-          <div class="simulator-label">
-            <span>Cycle de marée (12h)</span>
-            <span class="simulator-value" id="tide-cycle-val">Montante (3h après BM)</span>
+        <!-- Tide 7-Day Forecast Wrapper -->
+        <div id="tide-prev-wrapper" style="display: none; max-height: 280px; overflow-y: auto;">
+          <div class="sidebar-forecast-list" id="tide-forecast-list" style="display: flex; flex-direction: column; gap: 0.5rem; padding-right: 2px;">
+            <!-- Populated via JS -->
           </div>
-          <input type="range" id="tide-cycle-slider" min="0" max="12" value="3" step="0.5">
-        </div>
-
-        <!-- Coefficient -->
-        <div class="simulator-group">
-          <div class="simulator-label">
-            <span>Coefficient de marée</span>
-            <span class="simulator-value" id="tide-coeff-val">75</span>
-          </div>
-          <input type="range" id="tide-coeff-slider" min="35" max="115" value="75">
         </div>
       </section>
     </aside>
@@ -277,38 +309,21 @@
           </div>
         </section>
 
-        <!-- Fish Catalogue & Forecast Panel -->
+        <!-- Fish Catalogue Panel -->
         <section class="glass-panel species-panel">
-          <!-- Panel Tab Switcher -->
-          <div class="panel-title-switcher" style="margin-bottom: 0.75rem;">
-            <button class="btn-panel-tab active" id="tab-btn-species">
-              <i data-lucide="book-open" style="width: 16px; height: 16px; margin-right: 4px;"></i>
-              <span>Poissons</span>
-            </button>
-            <button class="btn-panel-tab" id="tab-btn-forecast">
-              <i data-lucide="calendar" style="width: 16px; height: 16px; margin-right: 4px;"></i>
-              <span>Prévisions 7J</span>
-            </button>
+          <div class="panel-title" style="margin-bottom: 0.75rem;">
+            <i data-lucide="book-open"></i>
+            <span>Catalogue des Espèces de la Mer du Nord</span>
           </div>
           
-          <!-- Species Section Wrapper -->
-          <div id="species-content-wrapper">
-            <!-- Species Navigation Tabs -->
-            <div class="species-grid" id="species-tabs-container">
-              <!-- Populated via JS -->
-            </div>
-            
-            <!-- Selected Species Detail Box -->
-            <div class="species-detail-box" id="species-detail-content">
-              <!-- Populated via JS -->
-            </div>
+          <!-- Species Navigation Tabs -->
+          <div class="species-grid" id="species-tabs-container">
+            <!-- Populated via JS -->
           </div>
-
-          <!-- Forecast Section Wrapper -->
-          <div id="forecast-content-wrapper" style="display: none; height: calc(100% - 40px); overflow: hidden;">
-            <div class="forecast-list" id="forecast-list-container" style="overflow-y: auto; height: 100%; display: flex; flex-direction: column; gap: 0.5rem; padding-right: 2px;">
-              <!-- Populated via JS -->
-            </div>
+          
+          <!-- Selected Species Detail Box -->
+          <div class="species-detail-box" id="species-detail-content">
+            <!-- Populated via JS -->
           </div>
         </section>
       </div>
