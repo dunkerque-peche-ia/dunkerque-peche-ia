@@ -150,9 +150,24 @@ const elements = {
   btnSend: document.getElementById("btn-send"),
   suggestedPromptsContainer: document.getElementById("suggested-prompts-container"),
   
-  // Species Catalogue
+  // Species Catalogue & Logbook
   speciesTabsContainer: document.getElementById("species-tabs-container"),
   speciesDetailContent: document.getElementById("species-detail-content"),
+  tabBtnSpecies: document.getElementById("tab-btn-species"),
+  tabBtnLogbook: document.getElementById("tab-btn-logbook"),
+  speciesContentWrapper: document.getElementById("species-content-wrapper"),
+  logbookContentWrapper: document.getElementById("logbook-content-wrapper"),
+  logbookListContainer: document.getElementById("logbook-list-container"),
+  btnOpenAddCatch: document.getElementById("btn-open-add-catch"),
+  addCatchModal: document.getElementById("add-catch-modal"),
+  btnCloseCatchModal: document.getElementById("btn-close-catch-modal"),
+  addCatchForm: document.getElementById("add-catch-form"),
+  catchSpecies: document.getElementById("catch-species"),
+  catchSpot: document.getElementById("catch-spot"),
+  catchLength: document.getElementById("catch-length"),
+  catchWeight: document.getElementById("catch-weight"),
+  catchBait: document.getElementById("catch-bait"),
+  catchDate: document.getElementById("catch-date"),
 
   // Weather Forecast Switcher
   tabBtnMeteoSim: document.getElementById("tab-btn-meteo-sim"),
@@ -218,6 +233,107 @@ function initMap() {
 
     markers[spot.id] = marker;
   });
+
+  // 3a. Add custom GPS control button to Leaflet map
+  const GpsControl = L.Control.extend({
+    options: {
+      position: 'topleft'
+    },
+    onAdd: function(map) {
+      const btn = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-gps');
+      btn.title = "Me géolocaliser";
+      btn.innerHTML = `<i data-lucide="locate-fixed" style="width: 16px; height: 16px; display: block;"></i>`;
+      
+      L.DomEvent.on(btn, 'click', (e) => {
+        L.DomEvent.stopPropagation(e);
+        handleGPS(btn);
+      });
+      
+      return btn;
+    }
+  });
+  map.addControl(new GpsControl());
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
+
+let userLocMarker = null;
+
+function handleGPS(btn) {
+  if (!navigator.geolocation) {
+    alert("La géolocalisation n'est pas supportée par votre navigateur.");
+    return;
+  }
+  
+  btn.classList.add("active");
+  btn.innerHTML = `<i data-lucide="loader-2" class="animate-spin" style="width: 16px; height: 16px; display: block;"></i>`;
+  if (typeof lucide !== 'undefined') lucide.createIcons();
+  
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      
+      btn.classList.remove("active");
+      btn.innerHTML = `<i data-lucide="locate-fixed" style="width: 16px; height: 16px; display: block;"></i>`;
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      
+      if (userLocMarker) {
+        userLocMarker.setLatLng([lat, lng]);
+      } else {
+        const userIcon = L.divIcon({
+          className: 'custom-user-marker',
+          html: `<div style="width: 12px; height: 12px; background: #00ff87; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 10px #00ff87;"></div>`,
+          iconSize: [12, 12]
+        });
+        userLocMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
+      }
+      
+      map.setView([lat, lng], 13);
+      
+      let closestSpot = null;
+      let minDistance = Infinity;
+      
+      SPOTS_DATABASE.forEach(s => {
+        const dist = calculateDistance(lat, lng, s.lat, s.lng);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closestSpot = s;
+        }
+      });
+      
+      if (closestSpot && minDistance < 50) {
+        if (confirm(`Le spot le plus proche est ${closestSpot.name} (${minDistance.toFixed(1)} km).\nVoulez-vous afficher les détails de ce spot ?`)) {
+          selectSpot(closestSpot.id);
+        }
+        
+        const speech = `Je vous ai localisé à **${minDistance.toFixed(1)} km** du spot **${closestSpot.name}** !\n\nAvec vos conditions simulées, voici mes conseils pour ce lieu : ${closestSpot.advice}`;
+        streamChatResponse(speech);
+      } else {
+        alert(`Géolocalisation réussie !\nCoordonnées : ${lat.toFixed(4)}, ${lng.toFixed(4)}\nAucun spot de pêche de la base de données n'est à moins de 50km.`);
+      }
+    },
+    (err) => {
+      btn.classList.remove("active");
+      btn.innerHTML = `<i data-lucide="locate-fixed" style="width: 16px; height: 16px; display: block;"></i>`;
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      alert("Impossible d'obtenir votre position. Vérifiez vos autorisations GPS.");
+    },
+    { enableHighAccuracy: true, timeout: 8000 }
+  );
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
 }
 
 // 4. Update Application State and UI
@@ -526,6 +642,7 @@ function selectSpecies(speciesId) {
       <ul style="margin-left: 1rem; color: var(--text-secondary); margin-top: 0.15rem;">
         ${fish.rigs.map(r => `<li><strong>${r.name}</strong> : ${r.desc}</li>`).join("")}
       </ul>
+      <div class="rig-svg-container" id="rig-svg-diagram" style="margin-top: 0.4rem;"></div>
     </div>
 
     <div style="margin-top:0.25rem;">
@@ -534,8 +651,103 @@ function selectSpecies(speciesId) {
     </div>
   `;
 
+  renderRigSVG(speciesId);
+
   // Recalculate score and refresh UI
   updateScore();
+}
+
+function getRigSVGMarkup(fishId) {
+  if (fishId === "bar" || fishId === "cabillaud") {
+    // Montage Poulie-Pennel (Pulley Rig)
+    return `
+      <svg viewBox="0 0 400 150">
+        <line x1="20" y1="50" x2="330" y2="50" stroke="rgba(255,255,255,0.15)" stroke-width="2" />
+        <line x1="330" y1="50" x2="330" y2="110" class="rig-svg-line" stroke="#00f2fe" stroke-width="1.5" />
+        
+        <circle cx="200" cy="50" r="5" fill="#4facfe" stroke="#00f2fe" stroke-width="1" />
+        <text x="200" y="40" fill="var(--text-secondary)" font-size="8" text-anchor="middle">Coulisseau & Perle</text>
+        
+        <path d="M 200 50 Q 120 70 80 110" fill="none" stroke="#00ff87" stroke-width="1.5" stroke-dasharray="2" />
+        <text x="120" y="90" fill="var(--text-secondary)" font-size="8" text-anchor="middle">Empile (80cm)</text>
+        
+        <polygon points="326,110 334,110 330,122" fill="rgba(255,255,255,0.3)" stroke="var(--text-secondary)" stroke-width="1" />
+        <text x="330" y="132" fill="var(--text-muted)" font-size="7" text-anchor="middle">Plomb (120-150g)</text>
+        
+        <path d="M 80 110 Q 75 118 80 122 Q 85 122 84 117" fill="none" class="rig-glowing-hook" stroke="#ff5e62" stroke-width="2" />
+        <path d="M 70 110 Q 65 118 70 122 Q 75 122 74 117" fill="none" class="rig-glowing-hook" stroke="#ff5e62" stroke-width="2" />
+        <text x="75" y="135" fill="var(--accent-red)" font-size="8" font-weight="700" text-anchor="middle">Hameçons Pennel (double)</text>
+        
+        <circle cx="20" cy="50" r="4" fill="#4facfe" />
+      </svg>
+    `;
+  } else if (fishId === "maquereau") {
+    // Montage Plumes / Mitraillette (Feather Rig / Sabiki)
+    return `
+      <svg viewBox="0 0 400 150">
+        <line x1="20" y1="75" x2="350" y2="75" class="rig-svg-line" stroke="#00f2fe" stroke-width="2" />
+        <text x="185" y="30" fill="var(--text-secondary)" font-size="8" text-anchor="middle">Mitraillette de 4-6 Plumes (Nylon 0.40mm)</text>
+        
+        <!-- Plume 1 -->
+        <circle cx="100" cy="75" r="3" fill="#ff5e62" />
+        <line x1="100" y1="75" x2="115" y2="105" stroke="#00ff87" stroke-width="1" />
+        <path d="M 115 105 Q 113 111 118 113 Q 121 113 120 109" fill="none" class="rig-glowing-hook" stroke="#ff5e62" stroke-width="1.5" />
+        <!-- Feather effect -->
+        <path d="M 100 75 L 115 100 L 112 105 Z" fill="rgba(255, 94, 98, 0.4)" stroke="rgba(255, 94, 98, 0.7)" stroke-width="0.5" />
+        <text x="115" y="120" fill="var(--text-muted)" font-size="7" text-anchor="middle">Plume rouge</text>
+
+        <!-- Plume 2 -->
+        <circle cx="180" cy="75" r="3" fill="#00ff87" />
+        <line x1="180" y1="75" x2="195" y2="105" stroke="#00ff87" stroke-width="1" />
+        <path d="M 195 105 Q 193 111 198 113 Q 201 113 200 109" fill="none" class="rig-glowing-hook" stroke="#ff5e62" stroke-width="1.5" />
+        <!-- Feather effect -->
+        <path d="M 180 75 L 195 100 L 192 105 Z" fill="rgba(0, 255, 135, 0.4)" stroke="rgba(0, 255, 135, 0.7)" stroke-width="0.5" />
+        <text x="195" y="120" fill="var(--text-muted)" font-size="7" text-anchor="middle">Plume verte/blanche</text>
+
+        <!-- Plume 3 -->
+        <circle cx="260" cy="75" r="3" fill="#ffb834" />
+        <line x1="260" y1="75" x2="275" y2="105" stroke="#00ff87" stroke-width="1" />
+        <path d="M 275 105 Q 273 111 278 113 Q 281 113 280 109" fill="none" class="rig-glowing-hook" stroke="#ff5e62" stroke-width="1.5" />
+        <!-- Feather effect -->
+        <path d="M 260 75 L 275 100 L 272 105 Z" fill="rgba(255, 184, 52, 0.4)" stroke="rgba(255, 184, 52, 0.7)" stroke-width="0.5" />
+        <text x="275" y="120" fill="var(--text-muted)" font-size="7" text-anchor="middle">Plume jaune</text>
+        
+        <polygon points="350,70 362,75 350,80" fill="rgba(255,255,255,0.3)" stroke="var(--text-secondary)" stroke-width="1" />
+        <text x="356" y="92" fill="var(--text-muted)" font-size="7" text-anchor="middle">Plomb ou Cuillère</text>
+        
+        <circle cx="20" cy="75" r="4" fill="#4facfe" />
+      </svg>
+    `;
+  } else {
+    // Montage 2 ou 3 Empiles (Paternoster Rig) - Plat/Sole/Merlan/Flet/Daurade/Maquereau
+    return `
+      <svg viewBox="0 0 400 150">
+        <line x1="20" y1="75" x2="350" y2="75" class="rig-svg-line" stroke="#00f2fe" stroke-width="2" />
+        <text x="180" y="30" fill="var(--text-secondary)" font-size="8" text-anchor="middle">Corps de ligne Nylon 0.50mm</text>
+        
+        <circle cx="120" cy="75" r="3" fill="#4facfe" />
+        <line x1="120" y1="75" x2="145" y2="110" stroke="#00ff87" stroke-width="1" />
+        <path d="M 145 110 Q 143 116 148 118 Q 151 118 150 114" fill="none" class="rig-glowing-hook" stroke="#ff5e62" stroke-width="1.5" />
+        <text x="158" y="125" fill="var(--text-secondary)" font-size="8">Empile haute</text>
+        
+        <circle cx="260" cy="75" r="3" fill="#4facfe" />
+        <line x1="260" y1="75" x2="295" y2="115" stroke="#00ff87" stroke-width="1" />
+        <path d="M 295 115 Q 293 121 298 123 Q 301 123 300 119" fill="none" class="rig-glowing-hook" stroke="#ff5e62" stroke-width="1.5" />
+        <text x="308" y="130" fill="var(--text-secondary)" font-size="8">Traînard bas</text>
+        
+        <polygon points="350,70 362,75 350,80" fill="rgba(255,255,255,0.3)" stroke="var(--text-secondary)" stroke-width="1" />
+        <text x="356" y="92" fill="var(--text-muted)" font-size="7" text-anchor="middle">Plomb grappin</text>
+        
+        <circle cx="20" cy="75" r="4" fill="#4facfe" />
+      </svg>
+    `;
+  }
+}
+
+function renderRigSVG(fishId) {
+  const container = document.getElementById("rig-svg-diagram");
+  if (!container) return;
+  container.innerHTML = getRigSVGMarkup(fishId);
 }
 
 // Populate Species navigation tabs
@@ -869,15 +1081,73 @@ function calculateTidesForDate(dateStr, spotId) {
   lowTides.sort((a, b) => a - b);
   
   // Water levels calculations consistent with updateTideUI()
-  // High level
   const heightMax = (5.2 + (finalCoeff - 35) * 0.025).toFixed(2);
-  // Low level
   const heightMin = (0.8 + (115 - finalCoeff) * 0.008).toFixed(2);
+  
+  // 3. Moon Phase calculation
+  // Reference New Moon: Day 17.86875 of 2026 (Jan 18, 2026 at 20:51)
+  const synodicPeriod = 29.53059;
+  let age = (D - 17.86875) % synodicPeriod;
+  if (age < 0) age += synodicPeriod;
+  
+  let phaseName = "";
+  let phaseIcon = "";
+  let isFull = false;
+  
+  if (age < 1.845) {
+    phaseName = "Nouvelle Lune";
+    phaseIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
+  } else if (age < 5.537) {
+    phaseName = "Premier Croissant";
+    phaseIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
+  } else if (age < 9.228) {
+    phaseName = "Premier Quartier";
+    phaseIcon = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20A10 10 0 0 0 12 2z"/></svg>`;
+  } else if (age < 12.92) {
+    phaseName = "Lune Gibbeuse Croissante";
+    phaseIcon = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 0 1 4 8 10 10 0 0 1-4 12A10 10 0 0 0 12 2z"/></svg>`;
+  } else if (age < 16.61) {
+    phaseName = "Pleine Lune";
+    phaseIcon = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
+    isFull = true;
+  } else if (age < 20.3) {
+    phaseName = "Lune Gibbeuse Décroissante";
+    phaseIcon = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 0 0-4 8 10 10 0 0 0 4 12A10 10 0 0 1 12 2z"/></svg>`;
+  } else if (age < 23.99) {
+    phaseName = "Dernier Quartier";
+    phaseIcon = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20A10 10 0 0 1 12 2z"/></svg>`;
+  } else if (age < 27.68) {
+    phaseName = "Dernier Croissant";
+    phaseIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
+  } else {
+    phaseName = "Nouvelle Lune";
+    phaseIcon = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>`;
+  }
+
+  // 4. Solunar feeding windows calculation
+  // Reference Transit overhead shifts by 0.841 hours per day
+  let transitOverhead = (21.5 + D * 0.841) % 24;
+  let transitUnderfoot = (transitOverhead + 12) % 24;
+  
+  const maj1Start = (transitOverhead - 1 + 24) % 24;
+  const maj1End = (transitOverhead + 1) % 24;
+  const maj2Start = (transitUnderfoot - 1 + 24) % 24;
+  const maj2End = (transitUnderfoot + 1) % 24;
   
   return {
     coeff: finalCoeff,
     highTides: highTides.map(t => ({ time: formatHoursToTimeString(t), height: heightMax })),
-    lowTides: lowTides.map(t => ({ time: formatHoursToTimeString(t), height: heightMin }))
+    lowTides: lowTides.map(t => ({ time: formatHoursToTimeString(t), height: heightMin })),
+    moon: {
+      name: phaseName,
+      icon: phaseIcon,
+      isFull: isFull,
+      age: age.toFixed(1)
+    },
+    solunar: {
+      major1: `${formatHoursToTimeString(maj1Start)} - ${formatHoursToTimeString(maj1End)}`,
+      major2: `${formatHoursToTimeString(maj2Start)} - ${formatHoursToTimeString(maj2End)}`
+    }
   };
 }
 
@@ -898,7 +1168,6 @@ function updateTideSearch() {
   
   const results = calculateTidesForDate(dateVal, spotId);
   
-  // Coefficient coloring class
   let coeffClass = "badge-good";
   if (results.coeff >= 85) coeffClass = "badge-excellent";
   else if (results.coeff <= 55) coeffClass = "badge-poor";
@@ -912,7 +1181,6 @@ function updateTideSearch() {
       <div style="display: flex; flex-direction: column; gap: 0.2rem;">
   `;
   
-  // Merge high and low tides chronologically for display
   const allTides = [];
   results.highTides.forEach(t => allTides.push({ type: "PM", time: t.time, height: t.height }));
   results.lowTides.forEach(t => allTides.push({ type: "BM", time: t.time, height: t.height }));
@@ -937,6 +1205,22 @@ function updateTideSearch() {
   
   html += `
       </div>
+      
+      <!-- Moon & Solunar Activity Widget -->
+      <div class="moon-phase-widget" style="margin-top: 0.6rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.5rem; display: flex; align-items: center; gap: 8px;">
+        <div class="moon-svg-container ${results.moon.isFull ? 'full' : ''}" style="color: ${results.moon.isFull ? 'var(--accent-cyan)' : 'var(--text-primary)'}; width: 28px; height: 28px; flex-shrink: 0;">
+          ${results.moon.icon}
+        </div>
+        <div class="solunar-times" style="display: flex; flex-direction: column; gap: 1px;">
+          <span style="font-weight: 700; color: var(--text-primary); font-size: 0.7rem;">${results.moon.name} <span style="font-size: 9px; color: var(--text-muted); font-weight: normal;">(Âge : ${results.moon.age}j)</span></span>
+          <span style="color: var(--accent-orange); font-size: 0.62rem; font-weight: 600; display: flex; align-items: center; gap: 3px;">
+            Activité Solunaire :
+          </span>
+          <span style="color: var(--text-secondary); font-size: 0.6rem; line-height: 1;">• Majeur : ${results.solunar.major1}</span>
+          <span style="color: var(--text-secondary); font-size: 0.6rem; line-height: 1;">• Majeur : ${results.solunar.major2}</span>
+        </div>
+      </div>
+      
       <button id="btn-apply-searched-tide" style="margin-top: 0.5rem; width: 100%; background: rgba(0, 242, 254, 0.1); border: 1px solid rgba(0, 242, 254, 0.3); border-radius: 4px; color: var(--accent-cyan); font-family: var(--font-family); font-size: 0.7rem; font-weight: 600; padding: 0.25rem; cursor: pointer; transition: 0.2s; outline: none;">
         Simuler cette marée
       </button>
@@ -945,13 +1229,15 @@ function updateTideSearch() {
   
   elements.tideSearchResult.innerHTML = html;
   
-  // Bind Apply Button click
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+  
   const btnApply = document.getElementById("btn-apply-searched-tide");
   if (btnApply) {
     btnApply.addEventListener("click", () => {
-      // Apply coefficient
       state.tideCoeff = results.coeff;
-      state.tideCycle = 6.0; // default to High Tide PM peak
+      state.tideCycle = 6.0;
       
       elements.tideCoeffSlider.value = results.coeff;
       elements.tideCoeffVal.textContent = results.coeff;
@@ -964,6 +1250,195 @@ function updateTideSearch() {
       const speech = `J'ai réglé le coefficient de **${results.coeff}** de l'annuaire du **${formattedDate}** dans votre simulateur de niveau d'eau pour **${spot ? spot.name : "ce spot"}** !`;
       streamChatResponse(speech);
     });
+  }
+}
+
+// 4d. My Catch Logbook Logic (LocalStorage)
+let catchesLog = [];
+
+function initLogbook() {
+  const stored = localStorage.getItem("dk-fishing-logbook");
+  if (stored) {
+    try {
+      catchesLog = JSON.parse(stored);
+    } catch (e) {
+      catchesLog = [];
+    }
+  } else {
+    catchesLog = [];
+  }
+  
+  if (elements.catchSpecies) {
+    elements.catchSpecies.innerHTML = FISH_DATABASE.map(f => `<option value="${f.id}">${f.name}</option>`).join("");
+  }
+  if (elements.catchSpot) {
+    elements.catchSpot.innerHTML = SPOTS_DATABASE.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+  }
+  
+  if (elements.tabBtnSpecies && elements.tabBtnLogbook && elements.speciesContentWrapper && elements.logbookContentWrapper) {
+    elements.tabBtnSpecies.addEventListener("click", () => {
+      elements.tabBtnSpecies.classList.add("active");
+      elements.tabBtnLogbook.classList.remove("active");
+      elements.speciesContentWrapper.style.display = "block";
+      elements.logbookContentWrapper.style.display = "none";
+    });
+    
+    elements.tabBtnLogbook.addEventListener("click", () => {
+      elements.tabBtnLogbook.classList.add("active");
+      elements.tabBtnSpecies.classList.remove("active");
+      elements.speciesContentWrapper.style.display = "none";
+      elements.logbookContentWrapper.style.display = "flex";
+      renderLogbook();
+    });
+  }
+  
+  if (elements.btnOpenAddCatch) {
+    elements.btnOpenAddCatch.addEventListener("click", openAddCatchModal);
+  }
+  
+  if (elements.btnCloseCatchModal) {
+    elements.btnCloseCatchModal.addEventListener("click", closeAddCatchModal);
+  }
+  
+  if (elements.addCatchForm) {
+    elements.addCatchForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      saveCatch();
+    });
+  }
+  
+  renderLogbook();
+}
+
+function renderLogbook() {
+  if (!elements.logbookListContainer) return;
+  
+  if (catchesLog.length === 0) {
+    elements.logbookListContainer.innerHTML = `
+      <div style="text-align: center; color: var(--text-muted); font-size: 0.75rem; padding: 2rem 0; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+        <i data-lucide="notebook" style="width: 24px; height: 24px; opacity: 0.5;"></i>
+        <span>Aucune capture enregistrée.<br>À vos cannes !</span>
+      </div>
+    `;
+    if (typeof lucide !== 'undefined') {
+      lucide.createIcons();
+    }
+    return;
+  }
+  
+  elements.logbookListContainer.innerHTML = "";
+  
+  catchesLog.slice().reverse().forEach((item, index) => {
+    const origIndex = catchesLog.length - 1 - index;
+    const fish = FISH_DATABASE.find(f => f.id === item.speciesId);
+    const spot = SPOTS_DATABASE.find(s => s.id === item.spotId);
+    const formattedDate = new Date(item.date).toLocaleDateString("fr-FR", { day: 'numeric', month: 'short' });
+    
+    const card = document.createElement("div");
+    card.className = "logbook-card";
+    card.innerHTML = `
+      <div class="logbook-card-info">
+        <span class="logbook-fish">${fish ? fish.name : item.speciesId}</span>
+        <span class="logbook-details">${item.length} cm ${item.weight ? `• ${item.weight} g` : ''} • ${item.bait}</span>
+        <span class="logbook-meta">${spot ? spot.name.split(" ")[0] : item.spotId} • Le ${formattedDate}</span>
+      </div>
+      <button class="btn-delete-catch" data-index="${origIndex}" style="background: none; border: none; outline: none;">
+        <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+      </button>
+    `;
+    
+    const btnDel = card.querySelector(".btn-delete-catch");
+    btnDel.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteCatch(origIndex);
+    });
+    
+    elements.logbookListContainer.appendChild(card);
+  });
+  
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
+
+function openAddCatchModal() {
+  if (!elements.addCatchModal) return;
+  
+  if (elements.catchSpecies) elements.catchSpecies.value = state.activeSpeciesId;
+  if (elements.catchSpot) elements.catchSpot.value = state.activeSpotId;
+  if (elements.catchDate) {
+    if (elements.tideSearchDate && elements.tideSearchDate.value) {
+      elements.catchDate.value = elements.tideSearchDate.value;
+    } else {
+      const today = new Date();
+      elements.catchDate.value = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    }
+  }
+  
+  const fish = FISH_DATABASE.find(f => f.id === state.activeSpeciesId);
+  if (elements.catchBait && fish && fish.baits && fish.baits.length > 0) {
+    elements.catchBait.value = fish.baits[0];
+  }
+  
+  elements.addCatchModal.style.display = "flex";
+}
+
+function closeAddCatchModal() {
+  if (!elements.addCatchModal) return;
+  elements.addCatchModal.style.display = "none";
+  if (elements.addCatchForm) elements.addCatchForm.reset();
+}
+
+function saveCatch() {
+  if (!elements.catchSpecies || !elements.catchSpot || !elements.catchLength || !elements.catchBait || !elements.catchDate) return;
+  
+  const speciesId = elements.catchSpecies.value;
+  const spotId = elements.catchSpot.value;
+  const length = parseInt(elements.catchLength.value);
+  const weight = elements.catchWeight.value ? parseInt(elements.catchWeight.value) : null;
+  const bait = elements.catchBait.value;
+  const date = elements.catchDate.value;
+  
+  const newCatch = {
+    speciesId,
+    spotId,
+    length,
+    weight,
+    bait,
+    date,
+    id: Date.now()
+  };
+  
+  catchesLog.push(newCatch);
+  localStorage.setItem("dk-fishing-logbook", JSON.stringify(catchesLog));
+  
+  closeAddCatchModal();
+  renderLogbook();
+  
+  const fish = FISH_DATABASE.find(f => f.id === speciesId);
+  const spot = SPOTS_DATABASE.find(s => s.id === spotId);
+  
+  let sizeFeedback = "";
+  const legalSizeVal = fish && fish.sizeLimit ? parseInt(fish.sizeLimit) : 0;
+  if (legalSizeVal > 0) {
+    if (length >= legalSizeVal) {
+      sizeFeedback = `Félicitations pour cette belle prise réglementaire de **${length} cm** (taille légale : ${fish.sizeLimit}). Elle est bien maillée ! 📏🏆`;
+    } else {
+      sizeFeedback = `Attention l'ami, ta prise fait **${length} cm** mais la taille légale pour cette espèce est de **${fish.sizeLimit}**. En situation réelle, il aurait fallu la relâcher (No Kill) pour préserver la ressource ! 🎣`;
+    }
+  } else {
+    sizeFeedback = `Félicitations pour cette prise de **${length} cm** ! 🏆`;
+  }
+  
+  const speech = `Prise enregistrée dans ton Journal de Bord ! 📝\n\n**Détails de la capture** :\n- Poisson : **${fish ? fish.name : speciesId}**\n- Spot : **${spot ? spot.name : spotId}**\n- Longueur : **${length} cm** ${weight ? `(${weight} g)` : ''}\n- Appât : **${bait}**\n\n${sizeFeedback}\n\nContinue comme ça !`;
+  streamChatResponse(speech);
+}
+
+function deleteCatch(index) {
+  if (confirm("Voulez-vous vraiment supprimer cette prise de votre journal ?")) {
+    catchesLog.splice(index, 1);
+    localStorage.setItem("dk-fishing-logbook", JSON.stringify(catchesLog));
+    renderLogbook();
   }
 }
 
@@ -1002,11 +1477,15 @@ function streamChatResponse(text) {
         return;
       }
       
-      const pText = paragraphs[currentParagraphIndex];
+      const pText = paragraphs[currentParagraphIndex].trim();
       let pElem;
       
-      // Check if it's a list
-      if (pText.trim().startsWith("-") || pText.trim().startsWith("1.")) {
+      // Check if it's a block HTML element (like a video grid or SVG rig container)
+      if (pText.startsWith("<div") || pText.startsWith("<iframe")) {
+        const tempContainer = document.createElement("div");
+        tempContainer.innerHTML = pText;
+        pElem = tempContainer.firstElementChild || tempContainer;
+      } else if (pText.startsWith("-") || pText.startsWith("1.")) {
         pElem = document.createElement("ul");
         const items = pText.split("\n");
         items.forEach(item => {
@@ -1082,7 +1561,7 @@ function generateAIResponse(query) {
 
   // Intent: Rig suggestions
   if (query.includes("montage") || query.includes("bas de ligne") || query.includes("hameçon")) {
-    return `Pour pêcher sur le spot **${spot.name}** avec les conditions actuelles (vent de ${state.windDir} à ${state.windSpeed} km/h), voici la stratégie de montage recommandée :\n\nPour cibler le **${fish.name}**, utilise :\n- **Le ${fish.rigs[0].name}** : ${fish.rigs[0].desc}\n\nSi le courant de marée est très fort (coefficient actuel de ${state.tideCoeff}), opte pour un plomb pyramide ou un plomb grappin débrayable de 125g à 170g pour bien tenir le fond sableux dunkerquois. Pense à utiliser un traînard en fluorocarbone pour la discrétion si l'eau est claire !`;
+    return `Pour pêcher sur le spot **${spot.name}** avec les conditions actuelles (vent de ${state.windDir} à ${state.windSpeed} km/h), voici la stratégie de montage recommandée :\n\nPour cibler le **${fish.name}**, utilise :\n- **Le ${fish.rigs[0].name}** : ${fish.rigs[0].desc}\n\n<div class="chat-rig-diagram">${getRigSVGMarkup(fish.id)}</div>\n\nSi le courant de marée est très fort (coefficient actuel de ${state.tideCoeff}), opte pour un plomb pyramide ou un plomb grappin débrayable de 125g à 170g pour bien tenir le fond sableux dunkerquois. Pense à utiliser un traînard en fluorocarbone pour la discrétion si l'eau est claire !`;
   }
 
   // Intent: Bait suggestions
@@ -1107,6 +1586,22 @@ function generateAIResponse(query) {
     }
 
     return `Voici mon analyse de l'impact du vent actuel (${state.windDir} - ${state.windSpeed} km/h) :\n\n${windAdvice}\n\nEspèce cible active dans ces conditions : **${fish.name}** avec une probabilité d'activité estimée à **${elements.scoreValue.textContent}%** sur le spot **${spot.name}**.`;
+  }
+
+  // Intent: Checklist
+  if (query.includes("checklist") || query.includes("matériel") || query.includes("materiel")) {
+    return `Voici votre **Checklist Matériel** personnalisée pour cibler le **${fish.name}** au spot **${spot.name}** :\n\n- **Canne & Moulinet** : Canne Surfcasting 4.20m ou 4.50m (puissance 100-200g), moulinet taille 10000 garni de nylon 30/100 ou tresse 16/100.\n- **Plombs** : Plombs grappins débrayables 125g et 150g (indispensables avec les courants de coefficient ${state.tideCoeff}), plus quelques plombs trilobes pour mer calme.\n- **Montage** : Corps de ligne nylon 50/100, empiles Amnesia 40/100 ou fluorocarbone 35/100.\n- **Accessoires** : Pique de surfcasting, aiguille à vers, fil élastique à ligaturer (indispensable pour les arénicoles), ciseaux, lampe frontale puissante (si pêche nocturne).\n- **Sécurité** : Veste coupe-vent imperméable chaude (il fait vite frais sur la digue de Malo ou du Braek), sifflet, téléphone chargé, et bottes adhérentes.\n\nN'oubliez pas de vérifier vos bas de ligne avant de partir !\n\n<div class="chat-video-grid"><div class="chat-video-card" style="grid-column: span 2;"><iframe src="https://www.youtube.com/embed/K81T_P54eP4" title="Surfcasting débutant" loading="lazy" allowfullscreen></iframe><div class="video-info"><span class="video-title">Vidéo : Débuter le Surfcasting en Mer du Nord 🌊</span></div></div></div>`;
+  }
+
+  // Intent: Knots
+  if (query.includes("nœud") || query.includes("noeud") || query.includes("noeud de pêche") || query.includes("attacher")) {
+    return `Voici les **2 Nœuds de Pêche Indispensables** pour le Dunkerquois :\n\n1. **Le Nœud Palomar** (Le plus solide pour attacher émerillons, agrafes et hameçons à œillet) :\n- Doublez le fil sur 10-15 cm et passez-le dans l'œillet de l'émerillon.\n- Faites un nœud simple avec le fil doublé (l'émerillon pend au milieu).\n- Passez l'émerillon dans la boucle formée à l'extrémité du fil doublé.\n- **Humectez le fil avec de la salive** (pour éviter l'échauffement) et serrez progressivement.\n\n2. **Le Nœud de Cuillère (Clinch amélioré)** (Idéal pour raccorder vos hameçons à œillet) :\n- Passez le fil dans l'œillet.\n- Enroulez le brin libre 5 à 6 fois autour du corps de ligne.\n- Repassez le bout dans la petite boucle située juste au-dessus de l'œillet.\n- Repassez enfin le bout dans la grande boucle que vous venez de créer.\n- Humectez de salive et serrez doucement en tirant.\n\nPratiquez ces nœuds au chaud chez vous avant de les utiliser sur les plages ventées !\n\n<div class="chat-video-grid"><div class="chat-video-card"><iframe src="https://www.youtube.com/embed/TFV_K7Cszkg" title="Nœud Palomar" loading="lazy" allowfullscreen></iframe><div class="video-info"><span class="video-title">Tuto : Nœud Palomar 🪢</span></div></div><div class="chat-video-card"><iframe src="https://www.youtube.com/embed/gE_8N3M1C98" title="Nœud Clinch" loading="lazy" allowfullscreen></iframe><div class="video-info"><span class="video-title">Tuto : Nœud Clinch 🪢</span></div></div></div>`;
+  }
+
+  // Intent: Legal sizes
+  if (query.includes("maille") || query.includes("taille") || query.includes("réglementation") || query.includes("reglementation") || query.includes("légal")) {
+    let fishSizes = FISH_DATABASE.map(f => `- **${f.name}** : ${f.sizeLimit ? `${f.sizeLimit}` : "Pas de taille minimale"}`).join("\n");
+    return `Voici la **Réglementation des Tailles Minimales (Maille)** de capture pour la Mer du Nord en vigueur à Dunkerque et Calais :\n\n${fishSizes}\n\n*Important* : Si votre poisson fait une taille inférieure à ces valeurs, vous devez impérativement le remettre à l'eau dans les meilleures conditions possibles (No Kill) afin de préserver la ressource. Pour mesurer correctement, placez le nez du poisson au point zéro et étirez la queue jusqu'à son extrémité.`;
   }
 
   // Intent: Spot specific detail queries (e.g. "braek", "zuydcoote", etc.)
@@ -1271,6 +1766,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initSpeciesTabs();
   setupListeners();
   setupMobileNav();
+  initLogbook();
   renderMeteoForecastList(); // Initial render of weekly weather forecast
   renderTideForecastList(); // Initial render of weekly tide forecast
   

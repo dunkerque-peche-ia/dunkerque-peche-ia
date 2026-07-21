@@ -308,11 +308,12 @@
           </div>
           
           <!-- Suggested Prompts -->
-          <div class="suggested-prompts" id="suggested-prompts-container">
+          <div class="suggested-prompts" id="suggested-prompts-container" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
             <button class="btn-prompt" data-question="Où pêcher en ce moment avec ces conditions ?">Où pêcher maintenant ?</button>
             <button class="btn-prompt" data-question="Quel montage utiliser sur le spot sélectionné ?">Quel montage conseiller ?</button>
-            <button class="btn-prompt" data-question="Quels appâts marchent le mieux aujourd'hui ?">Quels appâts privilégier ?</button>
-            <button class="btn-prompt" data-question="Quels poissons sont actifs sous ce vent ?">Activité par ce vent ?</button>
+            <button class="btn-prompt" data-question="Générer ma checklist matériel pour cette sortie.">📋 Checklist</button>
+            <button class="btn-prompt" data-question="Comment faire les nœuds de pêche indispensables (Clinch, Palomar) ?">🪢 Nœuds Pêche</button>
+            <button class="btn-prompt" data-question="Quelles sont les tailles de maille légales et réglementations à Dunkerque ?">📏 Mailles Légales</button>
           </div>
           
           <!-- Input Form -->
@@ -324,21 +325,45 @@
           </div>
         </section>
 
-        <!-- Fish Catalogue Panel -->
+        <!-- Fish Catalogue & Logbook Panel -->
         <section class="glass-panel species-panel">
-          <div class="panel-title" style="margin-bottom: 0.75rem;">
-            <i data-lucide="book-open"></i>
-            <span>Catalogue des Espèces de la Mer du Nord</span>
+          <!-- Panel Tab Switcher -->
+          <div class="panel-title-switcher" style="margin-bottom: 0.75rem;">
+            <button class="btn-panel-tab active" id="tab-btn-species">
+              <i data-lucide="book-open" style="width: 16px; height: 16px; margin-right: 4px;"></i>
+              <span>Poissons</span>
+            </button>
+            <button class="btn-panel-tab" id="tab-btn-logbook">
+              <i data-lucide="notebook" style="width: 16px; height: 16px; margin-right: 4px;"></i>
+              <span>Mon Journal</span>
+            </button>
           </div>
           
-          <!-- Species Navigation Tabs -->
-          <div class="species-grid" id="species-tabs-container">
-            <!-- Populated via JS -->
+          <!-- Species Section Wrapper -->
+          <div id="species-content-wrapper">
+            <!-- Species Navigation Tabs -->
+            <div class="species-grid" id="species-tabs-container">
+              <!-- Populated via JS -->
+            </div>
+            
+            <!-- Selected Species Detail Box -->
+            <div class="species-detail-box" id="species-detail-content">
+              <!-- Populated via JS -->
+            </div>
           </div>
-          
-          <!-- Selected Species Detail Box -->
-          <div class="species-detail-box" id="species-detail-content">
-            <!-- Populated via JS -->
+
+          <!-- Logbook Section Wrapper -->
+          <div id="logbook-content-wrapper" style="display: none; height: calc(100% - 40px); overflow: hidden; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding-right: 2px;">
+              <span style="font-size: 0.75rem; color: var(--text-secondary);">Historique de vos captures</span>
+              <button class="btn-add-catch" id="btn-open-add-catch" style="background: rgba(0, 255, 135, 0.1); border: 1px solid rgba(0, 255, 135, 0.3); border-radius: 4px; color: var(--accent-green); font-family: var(--font-family); font-size: 0.7rem; font-weight: 600; padding: 0.2rem 0.5rem; cursor: pointer; display: flex; align-items: center; gap: 3px; outline: none; transition: 0.2s;">
+                <i data-lucide="plus" style="width: 12px; height: 12px;"></i> Ajouter
+              </button>
+            </div>
+            
+            <div class="logbook-list" id="logbook-list-container" style="overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 0.5rem; padding-right: 2px;">
+              <!-- Populated via JS -->
+            </div>
           </div>
         </section>
       </div>
@@ -381,5 +406,46 @@
   <script>
     lucide.createIcons();
   </script>
+  <!-- Add Catch Modal Overlay -->
+  <div class="modal-overlay" id="add-catch-modal" style="display: none;">
+    <div class="modal-content glass-panel">
+      <div class="modal-header">
+        <h3 style="display: flex; align-items: center; gap: 6px; font-size: 1.1rem;"><i data-lucide="award" style="color: var(--accent-cyan); width: 20px; height: 20px;"></i> Enregistrer une prise</h3>
+        <button class="btn-close-modal" id="btn-close-catch-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="add-catch-form">
+          <div class="form-group">
+            <label for="catch-species">Poisson capturé</label>
+            <select id="catch-species" required></select>
+          </div>
+          <div class="form-group">
+            <label for="catch-spot">Spot de pêche</label>
+            <select id="catch-spot" required></select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="catch-length">Longueur (cm)</label>
+              <input type="number" id="catch-length" placeholder="Ex: 42" required min="1">
+            </div>
+            <div class="form-group">
+              <label for="catch-weight">Poids (g - facultatif)</label>
+              <input type="number" id="catch-weight" placeholder="Ex: 850" min="0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="catch-bait">Appât utilisé</label>
+            <input type="text" id="catch-bait" placeholder="Ex: Arénicole noire" required>
+          </div>
+          <div class="form-group">
+            <label for="catch-date">Date de capture</label>
+            <input type="date" id="catch-date" required>
+          </div>
+          <button type="submit" class="btn-submit-catch">Valider la capture 🏆</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>
