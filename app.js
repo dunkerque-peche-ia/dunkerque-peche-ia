@@ -14,7 +14,7 @@ const state = {
 };
 
 // 1b. 7-Day Forecast Database
-const FORECAST_DATABASE = [
+let FORECAST_DATABASE = [
   {
     date: "19/07",
     day: "Dimanche",
@@ -873,6 +873,144 @@ function getScoreForParams(day) {
   state.tideCoeff = prevTideCoeff;
 
   return Math.round(score);
+}
+
+// Global French days constants
+const DAYS_FR = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+
+function getWindDirLabel(deg) {
+  if (deg >= 315 || deg < 45) return "N";
+  if (deg >= 45 && deg < 135) return "E";
+  if (deg >= 135 && deg < 225) return "S";
+  return "SO";
+}
+
+function mapWeatherCodeToState(code) {
+  if (code === 0) return "soleil";
+  if (code >= 1 && code <= 3) return "nuageux";
+  if (code === 45 || code === 48) return "nuageux";
+  if (code >= 95) return "tempete";
+  return "pluvieux";
+}
+
+function generateFallbackForecast() {
+  const forecast = [];
+  const spots = ["braek", "jetee-malo", "plage-malo", "zuydcoote", "bray-dunes", "petit-fort", "oye-plage"];
+  const species = ["bar", "cabillaud", "sole", "maquereau", "flet", "merlan", "daurade"];
+  const weathers = ["soleil", "nuageux", "pluvieux", "tempete"];
+  const windDirs = ["N", "E", "S", "SO"];
+  const weatherLabels = { soleil: "Soleil", nuageux: "Nuageux", pluvieux: "Pluie", tempete: "Tempête" };
+  
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    
+    const dayName = DAYS_FR[d.getDay()];
+    const dayStr = String(d.getDate()).padStart(2, '0');
+    const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+    const dateStr = `${dayStr}/${monthStr}`;
+    
+    const spotId = spots[i % spots.length];
+    const speciesId = species[i % species.length];
+    const weatherState = weathers[i % weathers.length];
+    const windDir = windDirs[i % windDirs.length];
+    const windSpeed = 15 + (i * 5) % 35;
+    const pressure = 1000 + (i * 3) % 25;
+    const tideCycle = [6.0, 4.5, 3.0, 6.0, 5.0, 9.5, 6.0][i];
+    
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const formattedISODate = `${yyyy}-${mm}-${dd}`;
+    const tideInfo = calculateTidesForDate(formattedISODate, spotId);
+    const tideCoeff = tideInfo ? tideInfo.coeff : 70;
+    
+    forecast.push({
+      date: dateStr,
+      day: dayName,
+      windSpeed,
+      windDir,
+      pressure,
+      weatherState,
+      tideCycle,
+      tideCoeff,
+      spotId,
+      speciesId,
+      weatherText: `${weatherLabels[weatherState]} - Vent ${windDir === "SO" ? "S-O" : windDir} ${windSpeed} km/h`
+    });
+  }
+  return forecast;
+}
+
+async function fetchRealWeatherForecast() {
+  const lat = 51.033;
+  const lon = 2.377;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=pressure_msl&daily=weather_code,wind_speed_10m_max,wind_direction_10m_dominant&wind_speed_unit=kmh&timezone=Europe%2FParis`;
+  
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("HTTP error " + response.status);
+    const data = await response.json();
+    
+    const spots = ["braek", "jetee-malo", "plage-malo", "zuydcoote", "bray-dunes", "petit-fort", "oye-plage"];
+    const species = ["bar", "cabillaud", "sole", "maquereau", "flet", "merlan", "daurade"];
+    
+    const newForecast = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      
+      const dayName = DAYS_FR[d.getDay()];
+      const dayStr = String(d.getDate()).padStart(2, '0');
+      const monthStr = String(d.getMonth() + 1).padStart(2, '0');
+      const dateStr = `${dayStr}/${monthStr}`;
+      
+      const rawWeatherCode = data.daily.weather_code[i];
+      const windSpeed = Math.round(data.daily.wind_speed_10m_max[i] || 15);
+      const windDirDeg = data.daily.wind_direction_10m_dominant[i] || 0;
+      const windDir = getWindDirLabel(windDirDeg);
+      const pressure = Math.round(data.hourly.pressure_msl[i * 24 + 12] || 1013);
+      
+      const weatherState = mapWeatherCodeToState(rawWeatherCode);
+      const weatherLabels = { soleil: "Soleil", nuageux: "Nuageux", pluvieux: "Pluie", tempete: "Tempête" };
+      const weatherLabel = weatherLabels[weatherState];
+      
+      const spotId = spots[i % spots.length];
+      const speciesId = species[i % species.length];
+      const tideCycle = [6.0, 4.5, 3.0, 6.0, 5.0, 9.5, 6.0][i];
+      
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const formattedISODate = `${yyyy}-${mm}-${dd}`;
+      const tideInfo = calculateTidesForDate(formattedISODate, spotId);
+      const tideCoeff = tideInfo ? tideInfo.coeff : 70;
+      
+      newForecast.push({
+        date: dateStr,
+        day: dayName,
+        windSpeed,
+        windDir,
+        pressure,
+        weatherState,
+        tideCycle,
+        tideCoeff,
+        spotId,
+        speciesId,
+        weatherText: `${weatherLabel} - Vent ${windDir === "SO" ? "S-O" : windDir} ${windSpeed} km/h`
+      });
+    }
+    
+    FORECAST_DATABASE.splice(0, FORECAST_DATABASE.length, ...newForecast);
+    console.log("Weather synchronized successfully with Open-Meteo API!");
+  } catch (error) {
+    console.warn("Failed to fetch live weather forecast, using local generated forecast:", error);
+    const fallback = generateFallbackForecast();
+    FORECAST_DATABASE.splice(0, FORECAST_DATABASE.length, ...fallback);
+  } finally {
+    renderMeteoForecastList();
+    renderTideForecastList();
+  }
 }
 
 function renderMeteoForecastList() {
@@ -1782,6 +1920,9 @@ function setupMobileNav() {
 
 // 8. Initialization on load
 document.addEventListener("DOMContentLoaded", () => {
+  // Pre-populate forecast database with dynamic dates starting today to avoid static July 2026 dates
+  FORECAST_DATABASE.splice(0, FORECAST_DATABASE.length, ...generateFallbackForecast());
+
   initMap();
   initSpeciesTabs();
   setupListeners();
@@ -1802,6 +1943,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // Set initial tides UI & scores
   updateTideUI();
   selectSpot(state.activeSpotId); // This automatically triggers updateTideSearch()
+
+  // Fetch actual real-time synchronized forecast from Open-Meteo API
+  fetchRealWeatherForecast();
 
   // Force Leaflet to recalculate size after browser DOM rendering completes
   setTimeout(() => {
