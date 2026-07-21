@@ -1598,10 +1598,30 @@ function generateAIResponse(query) {
     return `Voici les **2 Nœuds de Pêche Indispensables** pour le Dunkerquois :\n\n1. **Le Nœud Palomar** (Le plus solide pour attacher émerillons, agrafes et hameçons à œillet) :\n- Doublez le fil sur 10-15 cm et passez-le dans l'œillet de l'émerillon.\n- Faites un nœud simple avec le fil doublé (l'émerillon pend au milieu).\n- Passez l'émerillon dans la boucle formée à l'extrémité du fil doublé.\n- **Humectez le fil avec de la salive** (pour éviter l'échauffement) et serrez progressivement.\n\n2. **Le Nœud de Cuillère (Clinch amélioré)** (Idéal pour raccorder vos hameçons à œillet) :\n- Passez le fil dans l'œillet.\n- Enroulez le brin libre 5 à 6 fois autour du corps de ligne.\n- Repassez le bout dans la petite boucle située juste au-dessus de l'œillet.\n- Repassez enfin le bout dans la grande boucle que vous viens de créer.\n- Humectez de salive et serrez doucement en tirant.\n\nPratiquez ces nœuds au chaud chez vous avant de les utiliser sur les plages ventées !\n\n<div class="chat-video-grid"><div class="chat-video-card"><iframe src="https://www.youtube.com/embed/d321WNN5pP8" title="Nœud Palomar" loading="lazy" allowfullscreen></iframe><div class="video-info"><span class="video-title">Tuto : Nœud Palomar 🪢</span></div></div><div class="chat-video-card"><iframe src="https://www.youtube.com/embed/Tg1Vlib1Fps" title="Nœud Clinch" loading="lazy" allowfullscreen></iframe><div class="video-info"><span class="video-title">Tuto : Nœud Clinch 🪢</span></div></div></div>`;
   }
 
-  // Intent: Legal sizes
-  if (query.includes("maille") || query.includes("taille") || query.includes("réglementation") || query.includes("reglementation") || query.includes("légal")) {
-    let fishSizes = FISH_DATABASE.map(f => `- **${f.name}** : ${f.sizeLimit ? `${f.sizeLimit}` : "Pas de taille minimale"}`).join("\n");
-    return `Voici la **Réglementation des Tailles Minimales (Maille)** de capture pour la Mer du Nord en vigueur à Dunkerque et Calais :\n\n${fishSizes}\n\n*Important* : Si votre poisson fait une taille inférieure à ces valeurs, vous devez impérativement le remettre à l'eau dans les meilleures conditions possibles (No Kill) afin de préserver la ressource. Pour mesurer correctement, placez le nez du poisson au point zéro et étirez la queue jusqu'à son extrémité.`;
+  // Intent: Legal sizes and quotas (bag limits)
+  if (
+    query.includes("maille") || 
+    query.includes("taille") || 
+    query.includes("réglementation") || 
+    query.includes("reglementation") || 
+    query.includes("légal") || 
+    query.includes("legal") || 
+    query.includes("quota") || 
+    query.includes("nombre") || 
+    query.includes("quantité") || 
+    query.includes("quantite") || 
+    query.includes("combien")
+  ) {
+    let fishSizes = FISH_DATABASE.map(f => {
+      let quota = "Pas de quota numérique du bord (prélèvement raisonnable)";
+      if (f.id === "bar") quota = "**3 spécimens max par jour / pêcheur** (Fermeture biologique No-Kill en février/mars)";
+      if (f.id === "cabillaud") quota = "**6 spécimens max par jour / pêcheur**";
+      if (f.id === "sole") quota = "**11 spécimens max par jour / pêcheur** (conseillé du bord)";
+      
+      return `- **${f.name}** :\n  - Taille minimale : ${f.sizeLimit ? `${f.sizeLimit}` : "Pas de taille minimale"}\n  - Quota de capture : ${quota}`;
+    }).join("\n");
+
+    return `Voici la **Réglementation (Tailles Minimales & Quotas)** de capture de loisir en Mer du Nord pour le secteur de Dunkerque :\n\n${fishSizes}\n\n---\n\n### ⚠️ Règles cruciales à respecter :\n1. **Marquage obligatoire** : Pour le bar, le cabillaud et la sole, vous devez **couper la partie inférieure de la nageoire caudale** (la queue) immédiatement après la capture si vous décidez de garder le poisson (pour éviter le braconnage et la revente).\n2. **Taille minimale (la maille)** : Si le poisson mesure moins que la taille indiquée, vous devez impérativement le remettre à l'eau vivace (*No Kill*).\n3. **Interdiction de revente** : Le produit de votre pêche est strictement réservé à votre consommation personnelle et familiale.`;
   }
 
   // Intent: Spot specific detail queries (e.g. "braek", "zuydcoote", etc.)
