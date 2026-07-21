@@ -1,5 +1,5 @@
 // Service Worker for Dunkerque Pêche IA
-const CACHE_NAME = "dk-fishing-v8";
+const CACHE_NAME = "dk-fishing-v9";
 const ASSETS_TO_CACHE = [
   "index.html",
   "style.css",
