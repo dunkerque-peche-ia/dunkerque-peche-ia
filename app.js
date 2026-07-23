@@ -141,6 +141,8 @@ const elements = {
   spotWindsIdeal: document.getElementById("spot-winds-ideal"),
   spotSpecies: document.getElementById("spot-species"),
   spotAdvice: document.getElementById("spot-advice"),
+  spotAccess: document.getElementById("spot-access"),
+  btnGpsRoute: document.getElementById("btn-gps-route"),
   spotSafety: document.getElementById("spot-safety"),
   spotSafetyBox: document.getElementById("spot-safety-box"),
   
@@ -574,6 +576,12 @@ function selectSpot(spotId) {
   elements.spotSpecies.textContent = speciesList;
   
   elements.spotAdvice.textContent = spot.advice;
+  if (elements.spotAccess) {
+    elements.spotAccess.textContent = spot.access;
+  }
+  if (elements.btnGpsRoute) {
+    elements.btnGpsRoute.href = `https://www.google.com/maps/dir/?api=1&destination=${spot.lat},${spot.lng}`;
+  }
   elements.spotSafety.textContent = spot.safety;
   
   // Update safety background alert level if spot is dangerous (like Zuydcoote or Braek)
@@ -1676,6 +1684,11 @@ function generateAIResponse(query) {
   const currentTideState = state.tideCycle === 0 || state.tideCycle === 12 ? "basse mer" :
                            state.tideCycle === 6 ? "pleine mer" :
                            state.tideCycle < 6 ? "marée montante" : "marée descendante";
+
+  // Intent: Access directions
+  if (query.includes("se rendre") || query.includes("aller à") || query.includes("accès") || query.includes("route") || query.includes("parking") || query.includes("comment y aller") || query.includes("itinéraire")) {
+    return `Pour te rendre au spot **${spot.name}** :\n\n🚗 **Accès & Parking** :\n${spot.access}\n\n📍 **Coordonnées GPS** : \n\`${spot.lat}, ${spot.lng}\`\n\nTu peux cliquer sur le bouton **Calculer l'itinéraire GPS** dans la fiche du spot (à droite) pour lancer directement la navigation Google Maps !`;
+  }
 
   // Intent: Spot specific suggestions
   if (query.includes("où pêcher") || query.includes("meilleur spot") || query.includes("quel coin")) {
