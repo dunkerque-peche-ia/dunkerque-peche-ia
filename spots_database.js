@@ -78,8 +78,8 @@ const SPOTS_DATABASE = [
   {
     id: "petit-fort",
     name: "Jetée Ouest de Petit-Fort-Philippe (Gravelines)",
-    lat: 51.0167,
-    lng: 2.0950,
+    lat: 51.0135,
+    lng: 2.0910,
     type: "Jetée en béton / Embouchure",
     difficulty: "Moyen",
     bestTides: "Pleine mer et début de descendante",
@@ -93,8 +93,8 @@ const SPOTS_DATABASE = [
   {
     id: "oye-plage",
     name: "Plage des Hemmes d'Oye",
-    lat: 51.0180,
-    lng: 2.0250,
+    lat: 51.0110,
+    lng: 2.0210,
     type: "Plage de sable sauvage",
     difficulty: "Difficile (Marées très rapides)",
     bestTides: "Première heure de montante et fin de descendante",
