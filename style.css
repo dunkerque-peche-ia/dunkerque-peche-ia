@@ -1124,7 +1124,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
 
 /* Custom Map Markers & Tooltips */
 .custom-spot-marker {
-  position: relative;
   width: 24px;
   height: 24px;
   display: flex;
