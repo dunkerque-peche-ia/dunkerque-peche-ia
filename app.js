@@ -10,7 +10,9 @@ const state = {
   weatherState: "nuageux", // soleil, nuageux, pluvieux, tempete
   tideCycle: 3.0, // 0 to 12 hours (0=Low, 6=High, 12=Low)
   tideCoeff: 75,
-  isTyping: false
+  isTyping: false,
+  activeMapTab: "spots", // spots or shops
+  activeShopId: "littoral-peche"
 };
 
 // 1b. 7-Day Forecast Database
@@ -186,7 +188,16 @@ const elements = {
   tidePrevWrapper: document.getElementById("tide-prev-wrapper"),
   tideForecastList: document.getElementById("tide-forecast-list"),
   tideSearchDate: document.getElementById("tide-search-date"),
-  tideSearchResult: document.getElementById("tide-search-result")
+  tideSearchResult: document.getElementById("tide-search-result"),
+
+  // Map Selector Tabs & Shop details
+  mapSelectorTabs: document.getElementById("map-selector-tabs"),
+  detailsPanelTitle: document.getElementById("details-panel-title"),
+  labelAccessAddress: document.getElementById("label-access-address"),
+  shopPhone: document.getElementById("shop-phone"),
+  shopHours: document.getElementById("shop-hours"),
+  shopBaits: document.getElementById("shop-baits"),
+  shopBrands: document.getElementById("shop-brands")
 };
 
 // 3. Initialize Interactive Map
@@ -257,22 +268,48 @@ function initMap() {
   });
   map.addControl(new GpsControl());
 
-  // Generate Spot selector quick buttons below the map
-  if (elements.mapSpotsSelector) {
-    elements.mapSpotsSelector.innerHTML = SPOTS_DATABASE.map(spot => `
-      <button class="btn-spot-select ${spot.id === state.activeSpotId ? 'active' : ''}" data-spot-id="${spot.id}">
-        <i data-lucide="map-pin" style="width: 12px; height: 12px;"></i>
-        <span>${spot.name}</span>
-      </button>
-    `).join('');
+  // Add Shops Markers
+  SHOPS_DATABASE.forEach(shop => {
+    // Custom HTML marker for red glowing look
+    const customIcon = L.divIcon({
+      className: 'custom-shop-marker',
+      html: `
+        <div class="marker-pulse-ring-shop" id="pulse-${shop.id}"></div>
+        <div class="marker-dot-shop ${shop.id === state.activeShopId ? 'active' : ''}"></div>
+      `,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
+    });
+
+    const marker = L.marker([shop.lat, shop.lng], { icon: customIcon }).addTo(map);
     
-    // Add click listeners to buttons
-    elements.mapSpotsSelector.querySelectorAll('.btn-spot-select').forEach(btn => {
-      btn.addEventListener('click', () => {
-        selectSpot(btn.dataset.spotId);
-      });
+    // Bind tooltip
+    marker.bindTooltip(`<strong>${shop.name}</strong><br><span style="font-size:11px;color:#ff5e62;"><i data-lucide="shopping-bag" style="width:10px;height:10px;display:inline-block;vertical-align:middle;margin-right:2px;"></i>Matériel & Appâts</span>`, {
+      direction: 'top',
+      offset: [0, -10],
+      className: 'leaflet-tooltip-dark'
+    });
+
+    // Marker click event
+    marker.on('click', () => {
+      switchMapTab("shops");
+      selectShop(shop.id);
+    });
+
+    markers[shop.id] = marker;
+  });
+
+  // Handle Map selector tab switching
+  if (elements.mapSelectorTabs) {
+    elements.mapSelectorTabs.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-map-tab');
+      if (!btn) return;
+      switchMapTab(btn.dataset.tab);
     });
   }
+
+  // Render initial quick selector buttons (spots by default)
+  renderMapSelectorButtons();
 
   if (typeof lucide !== 'undefined') {
     lucide.createIcons();
@@ -556,20 +593,32 @@ function selectSpot(spotId) {
   if (!spot) return;
 
   // Pan map to spot
-  map.panTo([spot.lat, spot.lng]);
+  if (map) {
+    map.panTo([spot.lat, spot.lng]);
+  }
 
-  // Update active marker dots classes
+  // Update active marker dots and pulse rings for ALL markers (spots AND shops!)
+  // First, update spots
   SPOTS_DATABASE.forEach(s => {
     const dot = document.querySelector(`#pulse-${s.id}`)?.nextElementSibling;
+    const pulse = document.getElementById(`pulse-${s.id}`);
+    if (s.id === spotId) {
+      if (dot) dot.classList.add('active');
+      if (pulse) pulse.style.display = 'block';
+    } else {
+      if (dot) dot.classList.remove('active');
+      if (pulse) pulse.style.display = 'none';
+    }
+  });
+  // Next, deactivate all shops
+  SHOPS_DATABASE.forEach(s => {
+    const dot = document.querySelector(`#pulse-${s.id}`)?.nextElementSibling;
     if (dot) {
-      if (s.id === spotId) {
-        dot.classList.add('active');
-        // Add dynamic pulse rings to map
-        document.getElementById(`pulse-${s.id}`).style.display = 'block';
-      } else {
-        dot.classList.remove('active');
-        document.getElementById(`pulse-${s.id}`).style.display = 'none';
-      }
+      dot.classList.remove('active');
+    }
+    const pulse = document.getElementById(`pulse-${s.id}`);
+    if (pulse) {
+      pulse.style.display = 'none';
     }
   });
 
@@ -585,6 +634,9 @@ function selectSpot(spotId) {
   }
 
   // Populate Spot Details panel
+  if (elements.detailsPanelTitle) {
+    elements.detailsPanelTitle.textContent = "Fiche du Spot";
+  }
   elements.spotName.textContent = spot.name;
   
   // Custom difficulty tag styles
@@ -609,8 +661,20 @@ function selectSpot(spotId) {
   if (elements.spotAccess) {
     elements.spotAccess.textContent = spot.access;
   }
+  if (elements.labelAccessAddress) {
+    elements.labelAccessAddress.textContent = "Accès :";
+  }
   if (elements.btnGpsRoute) {
     elements.btnGpsRoute.href = `https://www.google.com/maps/dir/?api=1&destination=${spot.lat},${spot.lng}`;
+  }
+
+  // Toggle visible rows (Show spot-only, hide shop-only)
+  document.querySelectorAll('.row-spot-only').forEach(el => el.style.display = 'flex');
+  document.querySelectorAll('.row-shop-only').forEach(el => el.style.display = 'none');
+
+  // Show safety warning box
+  if (elements.spotSafetyBox) {
+    elements.spotSafetyBox.style.display = 'flex';
   }
   elements.spotSafety.textContent = spot.safety;
   
@@ -626,6 +690,158 @@ function selectSpot(spotId) {
   // Recalculate score and refresh UI
   updateScore();
   updateTideSearch();
+}
+
+// 3b. Tackle & Bait Shops helper methods
+function renderMapSelectorButtons() {
+  if (!elements.mapSpotsSelector) return;
+  
+  if (state.activeMapTab === "spots") {
+    elements.mapSpotsSelector.innerHTML = SPOTS_DATABASE.map(spot => `
+      <button class="btn-spot-select ${spot.id === state.activeSpotId ? 'active' : ''}" data-spot-id="${spot.id}">
+        <i data-lucide="map-pin" style="width: 12px; height: 12px;"></i>
+        <span>${spot.name}</span>
+      </button>
+    `).join('');
+    
+    // Add click listeners to buttons
+    elements.mapSpotsSelector.querySelectorAll('.btn-spot-select').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectSpot(btn.dataset.spotId);
+      });
+    });
+  } else {
+    elements.mapSpotsSelector.innerHTML = SHOPS_DATABASE.map(shop => `
+      <button class="btn-spot-select ${shop.id === state.activeShopId ? 'active' : ''}" data-shop-id="${shop.id}">
+        <i data-lucide="shopping-bag" style="width: 12px; height: 12px;"></i>
+        <span>${shop.name}</span>
+      </button>
+    `).join('');
+    
+    // Add click listeners to buttons
+    elements.mapSpotsSelector.querySelectorAll('.btn-spot-select').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectShop(btn.dataset.shopId);
+      });
+    });
+  }
+
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
+}
+
+function switchMapTab(tabName) {
+  state.activeMapTab = tabName;
+  
+  // Update UI classes on tabs
+  if (elements.mapSelectorTabs) {
+    elements.mapSelectorTabs.querySelectorAll('.btn-map-tab').forEach(btn => {
+      if (btn.dataset.tab === tabName) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+  
+  // Re-render selector buttons
+  renderMapSelectorButtons();
+}
+
+function selectShop(shopId) {
+  state.activeShopId = shopId;
+  const shop = SHOPS_DATABASE.find(s => s.id === shopId);
+  if (!shop) return;
+
+  // Pan map to shop
+  if (map) {
+    map.panTo([shop.lat, shop.lng]);
+  }
+
+  // Update active marker dots and pulse rings for ALL markers (spots AND shops!)
+  // First, deactivate all spots
+  SPOTS_DATABASE.forEach(s => {
+    const dot = document.querySelector(`#pulse-${s.id}`)?.nextElementSibling;
+    if (dot) {
+      dot.classList.remove('active');
+    }
+    const pulse = document.getElementById(`pulse-${s.id}`);
+    if (pulse) {
+      pulse.style.display = 'none';
+    }
+  });
+  // Next, update shops
+  SHOPS_DATABASE.forEach(s => {
+    const dot = document.querySelector(`#pulse-${s.id}`)?.nextElementSibling;
+    const pulse = document.getElementById(`pulse-${s.id}`);
+    if (s.id === shopId) {
+      if (dot) dot.classList.add('active');
+      if (pulse) pulse.style.display = 'block';
+    } else {
+      if (dot) dot.classList.remove('active');
+      if (pulse) pulse.style.display = 'none';
+    }
+  });
+
+  // Update active quick selector buttons
+  if (elements.mapSpotsSelector) {
+    elements.mapSpotsSelector.querySelectorAll('.btn-spot-select').forEach(btn => {
+      if (btn.dataset.shopId === shopId) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  // Populate Details panel
+  if (elements.detailsPanelTitle) {
+    elements.detailsPanelTitle.textContent = "Fiche du Magasin";
+  }
+  elements.spotName.textContent = shop.name;
+  
+  // Custom type tag for Shop
+  elements.spotTags.innerHTML = `
+    <span class="tag tag-type" style="background: rgba(255, 94, 98, 0.1); border-color: rgba(255, 94, 98, 0.3); color: var(--accent-red);">
+      <i data-lucide="shopping-bag" style="width: 12px; height: 12px; display: inline-block; vertical-align: middle; margin-right: 2px;"></i>
+      Matériel & Appâts
+    </span>
+  `;
+
+  elements.spotDescription.textContent = shop.description;
+
+  // Populate Shop specific elements
+  if (elements.shopPhone) elements.shopPhone.textContent = shop.phone;
+  if (elements.shopHours) elements.shopHours.textContent = shop.hours;
+  if (elements.shopBaits) elements.shopBaits.textContent = shop.baits.join(", ");
+  if (elements.shopBrands) elements.shopBrands.textContent = shop.brands.join(", ");
+
+  // Shared address field
+  if (elements.spotAccess) {
+    elements.spotAccess.textContent = shop.address;
+  }
+  if (elements.labelAccessAddress) {
+    elements.labelAccessAddress.textContent = "Adresse :";
+  }
+
+  // Google Maps route
+  if (elements.btnGpsRoute) {
+    elements.btnGpsRoute.href = `https://www.google.com/maps/dir/?api=1&destination=${shop.lat},${shop.lng}`;
+  }
+
+  // Toggle visible rows (Hide spot-only, show shop-only)
+  document.querySelectorAll('.row-spot-only').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.row-shop-only').forEach(el => el.style.display = 'flex');
+
+  // Hide safety warning box
+  if (elements.spotSafetyBox) {
+    elements.spotSafetyBox.style.display = 'none';
+  }
+
+  if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+  }
 }
 
 function selectSpecies(speciesId) {

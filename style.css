@@ -450,6 +450,43 @@ input[type="range"]::-webkit-slider-thumb:hover {
   z-index: 10;
 }
 
+/* Map Selector Tabs */
+.map-selector-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.btn-map-tab {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-family);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  outline: none;
+}
+
+.btn-map-tab:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.btn-map-tab.active {
+  background: rgba(0, 242, 254, 0.08);
+  border-color: rgba(0, 242, 254, 0.15);
+  color: var(--accent-cyan);
+}
+
 /* Map Spots Quick Selector */
 .map-spots-selector {
   display: flex;
@@ -457,7 +494,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
   gap: 0.5rem;
   margin-top: 0.75rem;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px dashed rgba(255, 255, 255, 0.05);
 }
 
 .btn-spot-select {
@@ -1123,7 +1160,7 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 /* Custom Map Markers & Tooltips */
-.custom-spot-marker {
+.custom-spot-marker, .custom-shop-marker {
   width: 24px;
   height: 24px;
   display: flex;
@@ -1141,10 +1178,27 @@ input[type="range"]::-webkit-slider-thumb:hover {
   transition: var(--transition-smooth);
 }
 
+.marker-dot-shop {
+  width: 12px;
+  height: 12px;
+  background-color: var(--accent-red);
+  border: 2px solid var(--text-primary);
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(255, 94, 98, 0.8);
+  transition: var(--transition-smooth);
+}
+
 .marker-dot.active {
   background-color: var(--accent-cyan);
   border-color: var(--text-primary);
   box-shadow: 0 0 12px rgba(0, 242, 254, 1);
+  transform: scale(1.2);
+}
+
+.marker-dot-shop.active {
+  background-color: var(--accent-orange);
+  border-color: var(--text-primary);
+  box-shadow: 0 0 12px rgba(255, 159, 67, 1);
   transform: scale(1.2);
 }
 
@@ -1153,6 +1207,17 @@ input[type="range"]::-webkit-slider-thumb:hover {
   width: 32px;
   height: 32px;
   border: 2px solid var(--accent-cyan);
+  border-radius: 50%;
+  animation: mapMarkerPulse 1.8s infinite ease-out;
+  pointer-events: none;
+  display: none;
+}
+
+.marker-pulse-ring-shop {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--accent-red);
   border-radius: 50%;
   animation: mapMarkerPulse 1.8s infinite ease-out;
   pointer-events: none;

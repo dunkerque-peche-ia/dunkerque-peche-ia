@@ -1,11 +1,12 @@
 // Service Worker for Dunkerque Pêche IA
-const CACHE_NAME = "dk-fishing-v18";
+const CACHE_NAME = "dk-fishing-v19";
 const ASSETS_TO_CACHE = [
   "index.html",
   "style.css",
   "app.js",
   "fish_database.js",
   "spots_database.js",
+  "shops_database.js",
   "icon-192.png",
   "icon-512.png",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",

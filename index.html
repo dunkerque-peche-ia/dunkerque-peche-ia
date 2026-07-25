@@ -240,6 +240,19 @@
             <span>Spots de Pêche du Dunkerquois</span>
           </div>
           <div id="map"></div>
+          
+          <!-- Map quick selector tabs (Spots vs Shops) -->
+          <div class="map-selector-tabs" id="map-selector-tabs">
+            <button class="btn-map-tab active" data-tab="spots">
+              <i data-lucide="map-pin" style="width: 12px; height: 12px;"></i>
+              <span>Spots de pêche</span>
+            </button>
+            <button class="btn-map-tab" data-tab="shops">
+              <i data-lucide="shopping-bag" style="width: 12px; height: 12px;"></i>
+              <span>Magasins & Appâts</span>
+            </button>
+          </div>
+
           <div class="map-spots-selector" id="map-spots-selector">
             <!-- Dynamically populated spots quick selector buttons -->
           </div>
@@ -250,7 +263,7 @@
           <div>
             <div class="panel-title" style="margin-bottom: 0.75rem;">
               <i data-lucide="info"></i>
-              <span>Fiche du Spot</span>
+              <span id="details-panel-title">Fiche du Spot</span>
             </div>
             
             <div id="spot-active-content" class="spot-details-content">
@@ -264,24 +277,45 @@
                 <p class="spot-intro" id="spot-description">Cliquez sur un marqueur de la carte ou sur les boutons ci-dessous pour analyser un coin de pêche précis.</p>
               </div>
 
-              <div class="details-row">
+              <!-- Spot-only rows -->
+              <div class="details-row row-spot-only">
                 <div class="details-label">Marée idéale :</div>
                 <div class="details-val" id="spot-tide-ideal">-</div>
               </div>
-              <div class="details-row">
+              <div class="details-row row-spot-only">
                 <div class="details-label">Vents idéaux :</div>
                 <div class="details-val" id="spot-winds-ideal">-</div>
               </div>
-              <div class="details-row">
+              <div class="details-row row-spot-only">
                 <div class="details-label">Espèces clés :</div>
                 <div class="details-val" id="spot-species">-</div>
               </div>
-              <div class="details-row">
+              <div class="details-row row-spot-only">
                 <div class="details-label">Conseil Pro :</div>
                 <div class="details-val" style="font-style: italic;" id="spot-advice">-</div>
               </div>
+
+              <!-- Shop-only rows -->
+              <div class="details-row row-shop-only" style="display: none;">
+                <div class="details-label">Téléphone :</div>
+                <div class="details-val" id="shop-phone">-</div>
+              </div>
+              <div class="details-row row-shop-only" style="display: none;">
+                <div class="details-label">Horaires :</div>
+                <div class="details-val" id="shop-hours">-</div>
+              </div>
+              <div class="details-row row-shop-only" style="display: none;">
+                <div class="details-label">Appâts disponibles :</div>
+                <div class="details-val" id="shop-baits">-</div>
+              </div>
+              <div class="details-row row-shop-only" style="display: none;">
+                <div class="details-label">Marques :</div>
+                <div class="details-val" id="shop-brands">-</div>
+              </div>
+
+              <!-- Shared Address/Access row -->
               <div class="details-row">
-                <div class="details-label">Accès :</div>
+                <div class="details-label" id="label-access-address">Accès :</div>
                 <div class="details-val" id="spot-access">-</div>
               </div>
               <div style="margin-top: 0.5rem;">
@@ -423,6 +457,7 @@
   <!-- Database JS Files -->
   <script src="fish_database.js"></script>
   <script src="spots_database.js"></script>
+  <script src="shops_database.js"></script>
   
   <!-- Main Application Logic JS -->
   <script src="app.js"></script>
