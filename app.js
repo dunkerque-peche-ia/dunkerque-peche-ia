@@ -145,6 +145,7 @@ const elements = {
   btnGpsRoute: document.getElementById("btn-gps-route"),
   spotSafety: document.getElementById("spot-safety"),
   spotSafetyBox: document.getElementById("spot-safety-box"),
+  mapSpotsSelector: document.getElementById("map-spots-selector"),
   
   // AI Coach Chat
   chatHistory: document.getElementById("chat-history"),
@@ -255,6 +256,24 @@ function initMap() {
     }
   });
   map.addControl(new GpsControl());
+
+  // Generate Spot selector quick buttons below the map
+  if (elements.mapSpotsSelector) {
+    elements.mapSpotsSelector.innerHTML = SPOTS_DATABASE.map(spot => `
+      <button class="btn-spot-select ${spot.id === state.activeSpotId ? 'active' : ''}" data-spot-id="${spot.id}">
+        <i data-lucide="map-pin" style="width: 12px; height: 12px;"></i>
+        <span>${spot.name}</span>
+      </button>
+    `).join('');
+    
+    // Add click listeners to buttons
+    elements.mapSpotsSelector.querySelectorAll('.btn-spot-select').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectSpot(btn.dataset.spotId);
+      });
+    });
+  }
+
   if (typeof lucide !== 'undefined') {
     lucide.createIcons();
   }
@@ -553,6 +572,17 @@ function selectSpot(spotId) {
       }
     }
   });
+
+  // Update active quick selector buttons
+  if (elements.mapSpotsSelector) {
+    elements.mapSpotsSelector.querySelectorAll('.btn-spot-select').forEach(btn => {
+      if (btn.dataset.spotId === spotId) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
 
   // Populate Spot Details panel
   elements.spotName.textContent = spot.name;
