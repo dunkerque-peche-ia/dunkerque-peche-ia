@@ -1926,7 +1926,12 @@ function setupMobileNav() {
     if (tabName === "map" && map) {
       setTimeout(() => {
         map.invalidateSize();
-      }, 50);
+        // Re-center on the active spot to correct any positioning offset
+        const activeSpot = SPOTS_DATABASE.find(s => s.id === state.activeSpotId);
+        if (activeSpot) {
+          map.setView([activeSpot.lat, activeSpot.lng], map.getZoom());
+        }
+      }, 100);
     }
   });
 }
@@ -1964,6 +1969,11 @@ document.addEventListener("DOMContentLoaded", () => {
   setTimeout(() => {
     if (map) {
       map.invalidateSize();
+      // Re-center and set optimal initial zoom on the active spot to prevent offset
+      const activeSpot = SPOTS_DATABASE.find(s => s.id === state.activeSpotId);
+      if (activeSpot) {
+        map.setView([activeSpot.lat, activeSpot.lng], 12);
+      }
     }
-  }, 200);
+  }, 350);
 });
