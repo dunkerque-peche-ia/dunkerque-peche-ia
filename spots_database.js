@@ -3,8 +3,8 @@ const SPOTS_DATABASE = [
   {
     id: "braek",
     name: "La Digue du Braek",
-    lat: 51.0417,
-    lng: 2.2559,
+    lat: 51.0463,
+    lng: 2.2750,
     type: "Jetée / Digue industrielle",
     difficulty: "Difficile (Physique et technique)",
     bestTides: "Dernières 2h de montante, et descendante",
@@ -18,8 +18,8 @@ const SPOTS_DATABASE = [
   {
     id: "jetee-malo",
     name: "Digue de Malo-les-Bains (Jetée Est)",
-    lat: 51.0516,
-    lng: 2.3665,
+    lat: 51.0480,
+    lng: 2.3780,
     type: "Jetée en béton / Bois",
     difficulty: "Facile à Moyen",
     bestTides: "3 heures avant la pleine mer à 1 heure après",
@@ -78,8 +78,8 @@ const SPOTS_DATABASE = [
   {
     id: "petit-fort",
     name: "Jetée Ouest de Petit-Fort-Philippe (Gravelines)",
-    lat: 51.0085,
-    lng: 2.0920,
+    lat: 51.0150,
+    lng: 2.0917,
     type: "Jetée en béton / Embouchure",
     difficulty: "Moyen",
     bestTides: "Pleine mer et début de descendante",

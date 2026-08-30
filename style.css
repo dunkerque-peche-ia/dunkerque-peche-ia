@@ -443,8 +443,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
 }
 
 #map {
-  flex: 1;
-  min-height: 300px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
   border-radius: var(--radius-sm);
   border: 1px solid rgba(255, 255, 255, 0.05);
   z-index: 10;
@@ -1069,8 +1069,10 @@ input[type="range"]::-webkit-slider-thumb:hover {
     flex-direction: column !important;
   }
   body.tab-map #map {
-    height: 320px !important;
-    min-height: 320px !important;
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 1 / 1 !important;
+    min-height: unset !important;
   }
 
   body.tab-sim .sidebar {
