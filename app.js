@@ -212,10 +212,10 @@ function initMap() {
     zoomControl: true
   });
 
-  // Dark Map Tiles (CartoDB Dark Matter)
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    maxZoom: 19
+  // Dark Map Tiles (Esri Dark Gray Base - No API Key required)
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+    maxZoom: 16
   }).addTo(map);
 
   // Add Spots Markers
@@ -2222,4 +2222,85 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
   }, 350);
+
+  // ==========================================
+  // LOGIQUE DU COACH PÊCHE IA (GEMINI)
+  // ==========================================
+  const chatInput = document.getElementById('chat-input');
+  const btnSend = document.getElementById('btn-send');
+  const chatHistory = document.getElementById('chat-history');
+  const suggestedPrompts = document.querySelectorAll('.btn-prompt');
+
+  // Fonction pour ajouter un message à l'UI
+  function addChatMessage(message, sender = 'user') {
+    const bubble = document.createElement('div');
+    bubble.className = `chat-bubble ${sender}`;
+    // Convertir les sauts de ligne en <br> pour un affichage propre
+    bubble.innerHTML = `<p>${message.replace(/\n/g, '<br>')}</p>`;
+    chatHistory.appendChild(bubble);
+    // Scroll tout en bas
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+    return bubble; // Retourne l'élément pour pouvoir le modifier plus tard (ex: loading)
+  }
+
+  // Fonction pour envoyer au backend
+  async function sendToAICoach(text) {
+    if (!text.trim()) return;
+
+    // 1. Ajouter le message utilisateur
+    addChatMessage(text, 'user');
+    chatInput.value = '';
+
+    // 2. Ajouter le message de chargement
+    const loadingBubble = addChatMessage("Réflexion en cours...", 'assistant');
+    loadingBubble.style.opacity = "0.7";
+
+    try {
+      // 3. Appel de NOTRE propre serveur (route proxy /api/chat)
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: text })
+      });
+
+      const data = await response.json();
+
+      // 4. Mettre à jour la bulle de chargement avec la vraie réponse
+      loadingBubble.style.opacity = "1";
+      if (data.reply) {
+        loadingBubble.innerHTML = `<p>${data.reply.replace(/\n/g, '<br>')}</p>`;
+      } else {
+        loadingBubble.innerHTML = `<p style="color: #ff5555;">Erreur: ${data.error || "Impossible de contacter l'IA"}</p>`;
+      }
+    } catch (err) {
+      loadingBubble.style.opacity = "1";
+      loadingBubble.innerHTML = `<p style="color: #ff5555;">Erreur de connexion au serveur.</p>`;
+      console.error(err);
+    }
+  }
+
+  // Écouteur sur le bouton envoyer
+  if (btnSend && chatInput) {
+    btnSend.addEventListener('click', () => {
+      sendToAICoach(chatInput.value);
+    });
+
+    // Écouteur sur la touche "Entrée"
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendToAICoach(chatInput.value);
+      }
+    });
+  }
+
+  // Écouteurs sur les boutons de suggestions
+  if (suggestedPrompts) {
+    suggestedPrompts.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const question = btn.getAttribute('data-question');
+        if (question) sendToAICoach(question);
+      });
+    });
+  }
+
 });
